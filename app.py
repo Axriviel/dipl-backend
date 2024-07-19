@@ -64,4 +64,5 @@ async def get_result(user_id):
         return jsonify({'error': 'Výsledek pro zadané ID nenalezen'}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    #app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
