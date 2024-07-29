@@ -4,7 +4,7 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import tensorflow as tf
 from tensorflow import keras
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 import asyncio
 import uuid
 
@@ -12,15 +12,83 @@ import controllers.runner
 from repositories.UserRepository import UserRepository
 from services.UserService import UserService
 
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_cors import CORS
+
 app = Flask(__name__)
+CORS(app, supports_credentials=True)  # Povolit CORS s podporou cookies
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # nebo jiná DB
+app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'
+app.config['SECRET_KEY'] = os.urandom(24).hex()
+app.config['CORS_SUPPORTS_CREDENTIALS'] = True
+
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
+from flask_cors import CORS
 
 # Inicializace UserRepository a UserService
 user_repository = UserRepository()
 user_service = UserService(user_repository)
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
 
+    def __repr__(self):
+        return f'<User {self.username}>'
 
 user_results = {}
+
+# Vytvoření databázové tabulky
+with app.app_context():
+    db.create_all()
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({'error': 'Username already exists'}), 400
+
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    new_user = User(username=username, password=hashed_password)
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({'message': 'User registered successfully'}), 201
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    user = User.query.filter_by(username=username).first()
+    if user and bcrypt.check_password_hash(user.password, password):
+        session['user_id'] = user.id
+        return jsonify({'message': 'Logged in successfully'}), 200
+
+    return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/logout', methods=['DELETE'])
+def logout():
+    session.pop('user_id', None)
+    return jsonify({'message': 'Logged out successfully'}), 200
+
+@app.route('/user', methods=['GET'])
+def get_user():
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        if user:
+            return jsonify({'username': user.username}), 200
+    return jsonify({'error': 'Not authenticated'}), 401
+
 
 @app.route('/test', methods=['GET'])
 def get_users():

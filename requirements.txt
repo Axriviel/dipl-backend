@@ -3,3 +3,7 @@ Flask[async]
 tensorflow==2.16.2
 scikit-learn==1.5.1
 numpy==1.26.4
+Flask-JWT-Extended 
+Flask-SQLAlchemy
+Flask-Bcrypt
+flask-cors
