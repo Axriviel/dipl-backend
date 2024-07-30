@@ -8,38 +8,21 @@ from flask import Flask, jsonify, request, session
 import asyncio
 import uuid
 
+from config.settings import Config
+from models.user import db, User
 import controllers.runner
-from repositories.UserRepository import UserRepository
-from services.UserService import UserService
 
-from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)  # Povolit CORS s podporou cookies
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # nebo jiná DB
-app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'
-app.config['SECRET_KEY'] = os.urandom(24).hex()
-app.config['CORS_SUPPORTS_CREDENTIALS'] = True
+app.config.from_object(Config)
 
-db = SQLAlchemy(app)
+db.init_app(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-from flask_cors import CORS
-
-# Inicializace UserRepository a UserService
-user_repository = UserRepository()
-user_service = UserService(user_repository)
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
-
-    def __repr__(self):
-        return f'<User {self.username}>'
 
 user_results = {}
 
@@ -92,18 +75,17 @@ def get_user():
 
 @app.route('/test', methods=['GET'])
 def get_users():
+    users = Config.user_service.getAll()
+    if users is None:
+        app.logger.error("No users found!")
+        return jsonify({'error': 'No users found'}), 404
 
-    users = user_service.getAll()
-    #users_list = [{'id': user.id, 'username': user.username, 'email': user.email} for user in users]
-    return jsonify(users)
-
+    app.logger.info(f"Found users: {users}")
+    return jsonify([{'id': user.id, 'username': user.username} for user in users])    #return users
 
 # Endpoint pro zpracování požadavků
 @app.route('/', methods=['GET'])
 async def calculate():
-    # data = request.get_json()
-    # params = data['params']  # předpokládáme, že získáme parametry z requestu
-    # user_id = str(uuid.uuid4())
     user_id = str(5)
     results = []
 
@@ -112,19 +94,14 @@ async def calculate():
 
     return jsonify({'user_id': user_id}), 202
 
-
-
 @app.route('/result/<user_id>', methods=['GET'])
 async def get_result(user_id):
-    # return(user_results)
     if user_id in user_results:
         task = user_results[user_id]
 
         if task.done():
             result = task.result()
             del user_results[user_id]  # odstraníme výsledek po vrácení
-            print(result)
-            # return result
             return jsonify({'result': result})
         else:
             return jsonify({'status': 'running'}), 202  # vrátíme status, že výpočet stále běží
@@ -132,5 +109,4 @@ async def get_result(user_id):
         return jsonify({'error': 'Výsledek pro zadané ID nenalezen'}), 404
 
 if __name__ == '__main__':
-    #app.run(debug=True)
     app.run(host="0.0.0.0", port=5000)

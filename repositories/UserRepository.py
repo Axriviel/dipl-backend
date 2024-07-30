@@ -4,6 +4,6 @@ class UserRepository:
 
     def getAll(self):
         try:
-            return "test:prvni"
+            return self.User.query.all()
         except Exception as e:
             print("Error: "+ str(e))
