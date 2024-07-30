@@ -1,6 +1,7 @@
+from models.user import User
 class UserRepository:
-    def __init__(self,):
-        self.User = "User"
+    def __init__(self):
+        self.User = User
 
     def getAll(self):
         try:
