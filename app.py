@@ -83,6 +83,22 @@ def get_users():
     app.logger.info(f"Found users: {users}")
     return jsonify([{'id': user.id, 'username': user.username} for user in users])    #return users
 
+@app.route('/api/data', methods=['POST'])
+def receive_data():
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    test = data.get("test")
+    
+    # Zpracování dat podle potřeby
+    print(f"Received data - Name: {name}, Email: {email}, Test: {test}")
+    
+    response = {
+        'status': 'success',
+        'data': data
+    }
+    return jsonify(response)
+
 # Endpoint pro zpracování požadavků
 @app.route('/', methods=['GET'])
 async def calculate():
