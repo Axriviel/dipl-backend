@@ -64,8 +64,12 @@ def make_model():
     try:
         # Vytvoř model podle obdržených vrstev
         layers = data['layers']
+        
+        #složka, kdo ten request zadal
+        userName = data["user"]
+        print("Username:" + userName)
         model = create_model(layers)
-        print("model created")
+        #print("model created")
         #model.summary()
 
         save_model(model, "userModels/" + "model.keras")
