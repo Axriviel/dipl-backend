@@ -16,6 +16,9 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 
+from utils.model_storing import save_model, load_model
+
+
 app = Flask(__name__)
 CORS(app, supports_credentials=True)  # Povolit CORS s podporou cookies
 app.config.from_object(Config)
@@ -29,6 +32,55 @@ user_results = {}
 # Vytvoření databázové tabulky
 with app.app_context():
     db.create_all()
+
+
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+    # Funkce pro vytvoření Keras modelu
+def create_model(layers):
+    model = Sequential()
+
+    for layer in layers:
+        if layer['type'] == 'Dense':
+            model.add(Dense(
+                units=layer['units'],
+                activation=layer['activation'],
+                input_shape=layer.get('input_shape', None)
+            ))
+
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+# Endpoint pro přijetí modelových dat a vytvoření modelu
+@app.route('/api/save-model', methods=['POST'])
+def make_model():
+    data = request.get_json()
+
+    if not data or 'layers' not in data:
+        return jsonify({"error": "Invalid data format"}), 400
+
+    try:
+        # Vytvoř model podle obdržených vrstev
+        layers = data['layers']
+        model = create_model(layers)
+        print("model created")
+        #model.summary()
+
+        save_model(model, "userModels/" + "model.keras")
+        #model.save('model.keras')
+
+        #loaded_model = keras.models.load_model("model.keras")
+        loaded_model = load_model("userModels/" + "model.keras")
+
+        loaded_model.summary()
+        # Uložení modelu, například do souboru
+        
+
+        return jsonify({"message": "Model successfully created and saved!"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/register', methods=['POST'])
 def register():
