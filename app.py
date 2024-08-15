@@ -18,9 +18,13 @@ from flask_cors import CORS
 
 from utils.model_storing import save_model, load_model
 
+from controllers.ModelController import model_bp
+from controllers.UserController import user_bp
+
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)  # Povolit CORS s podporou cookies
+#CORS(app, supports_credentials=True)  # Povolit CORS s podporou cookies
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config.from_object(Config)
 
 db.init_app(app)
@@ -33,100 +37,99 @@ user_results = {}
 with app.app_context():
     db.create_all()
 
+# Registrace Blueprintů
+app.register_blueprint(user_bp)
+app.register_blueprint(model_bp)
 
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
     # Funkce pro vytvoření Keras modelu
-def create_model(layers):
-    model = Sequential()
+# def create_model(layers):
+#     model = Sequential()
 
-    for layer in layers:
-        if layer['type'] == 'Dense':
-            model.add(Dense(
-                units=layer['units'],
-                activation=layer['activation'],
-                input_shape=layer.get('input_shape', None)
-            ))
+#     for layer in layers:
+#         if layer['type'] == 'Dense':
+#             model.add(Dense(
+#                 units=layer['units'],
+#                 activation=layer['activation'],
+#                 input_shape=layer.get('input_shape', None)
+#             ))
 
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    return model
+#     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+#     return model
 
-# Endpoint pro přijetí modelových dat a vytvoření modelu
-@app.route('/api/save-model', methods=['POST'])
-def make_model():
-    data = request.get_json()
+# # Endpoint pro přijetí modelových dat a vytvoření modelu
+# @app.route('/api/save-model', methods=['POST'])
+# def make_model():
+#     data = request.get_json()
 
-    if not data or 'layers' not in data:
-        return jsonify({"error": "Invalid data format"}), 400
+#     if not data or 'layers' not in data:
+#         return jsonify({"error": "Invalid data format"}), 400
 
-    try:
-        # Vytvoř model podle obdržených vrstev
-        layers = data['layers']
+#     try:
+#         # Vytvoř model podle obdržených vrstev
+#         layers = data['layers']
         
-        #složka, kdo ten request zadal
-        userName = data["user"]
-        print("Username:" + userName)
-        model = create_model(layers)
-        #print("model created")
-        #model.summary()
+#         #složka, kdo ten request zadal
+#         userName = data["user"]
+#         print("Username:" + userName)
+#         model = create_model(layers)
+#         #print("model created")
+#         #model.summary()
 
-        save_model(model, "userModels/" + "model.keras")
-        #model.save('model.keras')
+#         save_model(model, "userModels/" + "model.keras")
+#         #model.save('model.keras')
 
-        #loaded_model = keras.models.load_model("model.keras")
-        loaded_model = load_model("userModels/" + "model.keras")
+#         #loaded_model = keras.models.load_model("model.keras")
+#         loaded_model = load_model("userModels/" + "model.keras")
 
-        loaded_model.summary()
-        # Uložení modelu, například do souboru
+#         loaded_model.summary()
+#         # Uložení modelu, například do souboru
         
 
-        return jsonify({"message": "Model successfully created and saved!"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#         return jsonify({"message": "Model successfully created and saved!"}), 200
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+# @app.route('/register', methods=['POST'])
+# def register():
+#     data = request.get_json()
+#     username = data.get('username')
+#     password = data.get('password')
 
-    if User.query.filter_by(username=username).first():
-        return jsonify({'error': 'Username already exists'}), 400
+#     if User.query.filter_by(username=username).first():
+#         return jsonify({'error': 'Username already exists'}), 400
 
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(username=username, password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
+#     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+#     new_user = User(username=username, password=hashed_password)
+#     db.session.add(new_user)
+#     db.session.commit()
 
-    return jsonify({'message': 'User registered successfully'}), 201
+#     return jsonify({'message': 'User registered successfully'}), 201
 
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+# @app.route('/login', methods=['POST'])
+# def login():
+#     data = request.get_json()
+#     username = data.get('username')
+#     password = data.get('password')
 
-    user = User.query.filter_by(username=username).first()
-    if user and bcrypt.check_password_hash(user.password, password):
-        session['user_id'] = user.id
-        return jsonify({'message': 'Logged in successfully'}), 200
+#     user = User.query.filter_by(username=username).first()
+#     if user and bcrypt.check_password_hash(user.password, password):
+#         session['user_id'] = user.id
+#         return jsonify({'message': 'Logged in successfully'}), 200
 
-    return jsonify({'error': 'Invalid credentials'}), 401
+#     return jsonify({'error': 'Invalid credentials'}), 401
 
-@app.route('/logout', methods=['DELETE'])
-def logout():
-    session.pop('user_id', None)
-    return jsonify({'message': 'Logged out successfully'}), 200
+# @app.route('/logout', methods=['DELETE'])
+# def logout():
+#     session.pop('user_id', None)
+#     return jsonify({'message': 'Logged out successfully'}), 200
 
-@app.route('/user', methods=['GET'])
-def get_user():
-    if 'user_id' in session:
-        user = User.query.get(session['user_id'])
-        if user:
-            return jsonify({'username': user.username}), 200
-    return jsonify({'error': 'Not authenticated'}), 401
+# @app.route('/user', methods=['GET'])
+# def get_user():
+#     if 'user_id' in session:
+#         user = User.query.get(session['user_id'])
+#         if user:
+#             return jsonify({'username': user.username}), 200
+#     return jsonify({'error': 'Not authenticated'}), 401
 
 
 @app.route('/test', methods=['GET'])
@@ -160,9 +163,11 @@ def receive_data():
 async def calculate():
     user_id = str(5)
     results = []
-
-    task = asyncio.create_task(controllers.runner.run_async_task("xx", "xd"))
-    user_results[user_id] = task
+    if user_id in user_results:
+        return jsonify({"status" : "You already have a task running"}), 409
+    else:    
+        task = asyncio.create_task(controllers.runner.run_async_task("xx", "xd"))
+        user_results[user_id] = task
 
     return jsonify({'user_id': user_id}), 202
 
