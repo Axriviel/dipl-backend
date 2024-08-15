@@ -3,7 +3,7 @@ from repositories.UserRepository import UserRepository
 from services.UserService import UserService
 
 class Config:
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///users.db'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///backend.db'
     JWT_SECRET_KEY = 'your_jwt_secret_key'
     SECRET_KEY = os.urandom(24).hex()
     CORS_SUPPORTS_CREDENTIALS = True

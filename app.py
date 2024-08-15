@@ -10,6 +10,7 @@ import uuid
 
 from config.settings import Config
 from models.user import db, User
+from models.model import Model
 import controllers.runner
 
 from flask_bcrypt import Bcrypt
@@ -24,7 +25,7 @@ from controllers.UserController import user_bp
 
 app = Flask(__name__)
 #CORS(app, supports_credentials=True)  # Povolit CORS s podporou cookies
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
 app.config.from_object(Config)
 
 db.init_app(app)
