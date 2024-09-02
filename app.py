@@ -133,6 +133,20 @@ app.register_blueprint(model_bp)
 #     return jsonify({'error': 'Not authenticated'}), 401
 
 
+@app.route("/feedback", methods=["POST"])
+def receive_feedback():
+    data = request.get_json()
+    try:
+        feedback = data["feedback"]
+        userName = data["user"]
+
+        #přidat funkci na logování feedbacku
+        print("Feedback: "+ feedback +" od uzivatele: " + userName)
+        return jsonify({"status": "success", "message": "Feedback received successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/test', methods=['GET'])
 def get_users():
     users = Config.user_service.getAll()
