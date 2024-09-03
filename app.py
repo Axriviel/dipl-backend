@@ -24,6 +24,7 @@ from utils.model_storing import save_model, load_model
 from controllers.ModelController import model_bp
 from controllers.UserController import user_bp
 from controllers.FeedbackController import feedback_bp
+from controllers.NotificationController import notification_bp
 
 
 app = Flask(__name__)
@@ -45,6 +46,7 @@ with app.app_context():
 app.register_blueprint(user_bp)
 app.register_blueprint(model_bp)
 app.register_blueprint(feedback_bp)
+app.register_blueprint(notification_bp)
 
     # Funkce pro vytvoření Keras modelu
 # def create_model(layers):
