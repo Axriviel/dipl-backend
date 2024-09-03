@@ -11,6 +11,8 @@ import uuid
 from config.settings import Config
 from models.user import db, User
 from models.model import Model
+from models.feedback import Feedback
+from models.notification import Notification
 import controllers.runner
 
 from flask_bcrypt import Bcrypt
@@ -21,6 +23,7 @@ from utils.model_storing import save_model, load_model
 
 from controllers.ModelController import model_bp
 from controllers.UserController import user_bp
+from controllers.FeedbackController import feedback_bp
 
 
 app = Flask(__name__)
@@ -41,6 +44,7 @@ with app.app_context():
 # Registrace Blueprintů
 app.register_blueprint(user_bp)
 app.register_blueprint(model_bp)
+app.register_blueprint(feedback_bp)
 
     # Funkce pro vytvoření Keras modelu
 # def create_model(layers):
@@ -133,18 +137,7 @@ app.register_blueprint(model_bp)
 #     return jsonify({'error': 'Not authenticated'}), 401
 
 
-@app.route("/feedback", methods=["POST"])
-def receive_feedback():
-    data = request.get_json()
-    try:
-        feedback = data["feedback"]
-        userName = data["user"]
 
-        #přidat funkci na logování feedbacku
-        print("Feedback: "+ feedback +" od uzivatele: " + userName)
-        return jsonify({"status": "success", "message": "Feedback received successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/test', methods=['GET'])
