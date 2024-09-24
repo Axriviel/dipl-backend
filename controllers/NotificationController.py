@@ -7,21 +7,21 @@ notification_bp = Blueprint('notification_bp', __name__)
 
 @notification_bp.route("/notifications", methods=["GET"])
 def get_notifications():
-    user_name = request.args.get('user')
+    user_id = request.args.get('user')
     #print(user_name)
     
-    if not user_name:
+    if not user_id:
         return jsonify({"error": "User name is required"}), 400
     
     try:
         # Najít uživatele podle jména
-        user = User.query.filter_by(username=user_name).first()
+        #user = User.query.filter_by(id=user_id).first()
         #print(user.id)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+        #if not user:
+        #    return jsonify({"error": "User not found"}), 404
         
         # Dotaz na notifikace tohoto uživatele
-        notifications = Notification.query.filter_by(user_id=user.id).all()
+        notifications = Notification.query.filter_by(user_id=user_id).all()
         #print(notifications)
         
         # Serializace dat do seznamu slovníků
@@ -31,7 +31,7 @@ def get_notifications():
                 'message': notification.message,
                 'timestamp': notification.timestamp,
                 'was_read': notification.was_read,
-                'user': user.username  # nebo jiné relevantní údaje o uživateli
+                'user': user_id  # nebo jiné relevantní údaje o uživateli
             }
             for notification in notifications
         ]
@@ -42,3 +42,4 @@ def get_notifications():
     except Exception as e:
         print(str(e))
         return jsonify({"error": str(e)}), 500
+

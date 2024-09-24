@@ -1,6 +1,6 @@
 import os
 from repositories.UserRepository import UserRepository
-from services.UserService import UserService
+from services.user_service import UserService
 
 class Config:
     SQLALCHEMY_DATABASE_URI = 'sqlite:///backend.db'

@@ -21,6 +21,9 @@ def create_model(layers):
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model
 
+def create_auto_model(dataset, task, user_name):
+    return "ahoj"
+
 #create task make model
 @model_bp.route('/api/save-model', methods=['POST'])
 def make_model():
@@ -31,13 +34,39 @@ def make_model():
 
     try:
         layers = data['layers']
-        userName = data["user"]
-        print("Username:" + userName)
+        user_name = data["user"]
+        print("Username:" + user_name)
         model = create_model(layers)
         save_model(model, "userModels/" + "model.keras")
         loaded_model = load_model("userModels/" + "model.keras")
 
         loaded_model.summary()
+        #save_notification()
+        return jsonify({"message": "Model successfully created and saved!"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+#create task make model
+@model_bp.route('/api/models/save-auto-model', methods=['POST'])
+def make_auto_model():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid data format"}), 400
+
+    try:
+        dataset = data["dataset"]
+        task = data['taskType']
+        user_name = data["user"]
+        print(dataset)
+        print(task)
+        print("Username:" + user_name)
+
+        model = create_auto_model(dataset, task, user_name)
+
+        #save_model(model, "userModels/" + "model.keras")
+        #loaded_model = load_model("userModels/" + "model.keras")
+
+        #loaded_model.summary()
 
         return jsonify({"message": "Model successfully created and saved!"}), 200
     except Exception as e:

@@ -19,8 +19,8 @@ from flask_cors import CORS
 
 from utils.model_storing import save_model, load_model
 
-from controllers.ModelController import model_bp
-from controllers.UserController import user_bp
+from controllers.model_controller import model_bp
+from controllers.user_controller import user_bp
 from controllers.FeedbackController import feedback_bp
 from controllers.NotificationController import notification_bp
 
