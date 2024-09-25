@@ -1,9 +1,11 @@
 from flask import Blueprint, jsonify, request
 from models import db
 from models.notification import Notification
-from models.user import User
+from config.settings import Config
+
 
 notification_bp = Blueprint('notification_bp', __name__)
+
 
 @notification_bp.route("/notifications", methods=["GET"])
 def get_notifications():
@@ -43,3 +45,6 @@ def get_notifications():
         print(str(e))
         return jsonify({"error": str(e)}), 500
 
+
+def create_notification(for_user_id, message):
+    return Config.notification_service.create_notification(for_user_id = for_user_id, message = message)

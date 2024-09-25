@@ -1,10 +1,9 @@
-from models.notification import db, Notification
-
-def create_notification(user, message):
-    try:
-        new_notification = Notification(message=message)
-        db.session.add(new_notification)
-        db.session.commit()
+class NotificationService:
+    def __init__(self, repository):
+        self.repository =  repository
     
-    except Exception as e:
-        print(e)
+    def getAll(self):
+        return self.repository.getAll()
+
+    def create_notification(self, for_user_id, message):
+        self.repository.create_notification(for_user_id, message)
