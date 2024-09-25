@@ -4,7 +4,10 @@ from tensorflow.keras.models import Sequential, load_model as keras_load_model
 from tensorflow.keras.layers import Dense
 from utils.model_storing import save_model, load_model
 from flask import send_file
+from controllers.notification_controller import create_notification
+from controllers.user_controller import session
 import os
+
 
 model_bp = Blueprint('model_bp', __name__)
 
@@ -34,14 +37,13 @@ def make_model():
 
     try:
         layers = data['layers']
-        user_name = data["user"]
-        print("Username:" + user_name)
+        
         model = create_model(layers)
         save_model(model, "userModels/" + "model.keras")
         loaded_model = load_model("userModels/" + "model.keras")
 
         loaded_model.summary()
-        #save_notification()
+        create_notification(for_user_id = session.get("user_id"), message = "Model created")
         return jsonify({"message": "Model successfully created and saved!"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -52,16 +54,18 @@ def make_auto_model():
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid data format"}), 400
-
+    user_id = session.get('user_id')  # Získání user_id ze session
     try:
         dataset = data["dataset"]
         task = data['taskType']
-        user_name = data["user"]
+        #user_name = data["user"]
         print(dataset)
         print(task)
-        print("Username:" + user_name)
+        #print("Username:" + user_name)
 
-        model = create_auto_model(dataset, task, user_name)
+        model = create_auto_model(dataset, task, user_id)
+
+        create_notification(for_user_id = user_id, message = "Model creating")
 
         #save_model(model, "userModels/" + "model.keras")
         #loaded_model = load_model("userModels/" + "model.keras")

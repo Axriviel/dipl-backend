@@ -6,7 +6,7 @@ bcrypt = Bcrypt()
 user_bp = Blueprint('user_bp', __name__)
 
 #registration
-@user_bp.route('/register', methods=['POST'])
+@user_bp.route('/api/user/register', methods=['POST'])
 def register():
     data = request.get_json()
     username = data.get('username')
@@ -25,7 +25,7 @@ def register():
     return jsonify({'message': 'User registered successfully'}), 201
 
 #login
-@user_bp.route('/login', methods=['POST'])
+@user_bp.route('/api/user/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
@@ -40,7 +40,7 @@ def login():
     return jsonify({'error': 'Invalid credentials'}), 401
 
 #logout
-@user_bp.route('/logout', methods=['DELETE'])
+@user_bp.route('/api/user/logout', methods=['DELETE'])
 def logout():
     user_id = session.get('user_id')  # Získání user_id ze session
 
@@ -52,7 +52,7 @@ def logout():
     return jsonify({'message': 'Logged out successfully'}), 200
 
 #get current user
-@user_bp.route('/user', methods=['GET'])
+@user_bp.route('/api/user/getUser', methods=['GET'])
 def get_user():
     user_id = session.get('user_id')  # Získání user_id přímo ze session
 
