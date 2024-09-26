@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from models import db
 from models.notification import Notification
 from config.settings import Config
+from controllers.user_controller import session
 
 
 notification_bp = Blueprint('notification_bp', __name__)
@@ -9,21 +10,25 @@ notification_bp = Blueprint('notification_bp', __name__)
 
 @notification_bp.route("/notifications", methods=["GET"])
 def get_notifications():
-    user_id = request.args.get('user')
+    # user_id = request.args.get('user')
+    user_id = session.get("user_id")
     #print(user_name)
-    
+    page = request.args.get('page', 1, type=int)  # Předvolba na stránku 1
+    limit = request.args.get('limit', 10, type=int)  # Předvolba na 10 notifikací na stránku
+
+
+
     if not user_id:
         return jsonify({"error": "User name is required"}), 400
     
     try:
-        # Najít uživatele podle jména
-        #user = User.query.filter_by(id=user_id).first()
-        #print(user.id)
-        #if not user:
-        #    return jsonify({"error": "User not found"}), 404
-        
-        # Dotaz na notifikace tohoto uživatele
-        notifications = Notification.query.filter_by(user_id=user_id).all()
+        # Dotaz na notifikace uživatele
+        notifications_query = Notification.query.filter_by(user_id=user_id)
+        total_notifications = notifications_query.count()  # Celkový počet notifikací
+        notifications = notifications_query.order_by(Notification.timestamp.desc()) \
+            .offset((page - 1) * limit) \
+            .limit(limit) \
+            .all()
         #print(notifications)
         
         # Serializace dat do seznamu slovníků
@@ -40,7 +45,11 @@ def get_notifications():
         #print(notifications_list)
         
         # Vrácení dat jako JSON odpověď
-        return jsonify(notifications_list)
+        return jsonify({
+            'notifications': notifications_list,
+            'totalPages': (total_notifications + limit - 1) // limit,  # Výpočet celkového počtu stránek
+            'currentPage': page
+        })
     except Exception as e:
         print(str(e))
         return jsonify({"error": str(e)}), 500
