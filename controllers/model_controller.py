@@ -58,10 +58,10 @@ def make_auto_model():
     try:
         dataset = data["dataset"]
         task = data['taskType']
-        #user_name = data["user"]
+        opt_method = data["optMethod"]
         print(dataset)
         print(task)
-        #print("Username:" + user_name)
+        print("Opt method: " + opt_method)
 
         model = create_auto_model(dataset, task, user_id)
 
