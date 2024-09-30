@@ -6,6 +6,8 @@ from utils.model_storing import save_model, load_model
 from flask import send_file
 from controllers.notification_controller import create_notification
 from controllers.user_controller import session
+from models.model import Model, db
+import random
 import os
 
 
@@ -54,8 +56,8 @@ def make_auto_model():
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid data format"}), 400
-    user_id = session.get('user_id')  # Získání user_id ze session
     try:
+        user_id = session.get('user_id')  # Získání user_id ze session
         dataset = data["dataset"]
         task = data['taskType']
         opt_method = data["optMethod"]
@@ -65,7 +67,13 @@ def make_auto_model():
 
         model = create_auto_model(dataset, task, user_id)
 
+        #přesunout do funkce
+        new_model = Model(model_name = "model_"+ str(random.random()), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
+        db.session.add(new_model)
+        db.session.commit()
+
         create_notification(for_user_id = user_id, message = "Model creating")
+
 
         #save_model(model, "userModels/" + "model.keras")
         #loaded_model = load_model("userModels/" + "model.keras")
@@ -75,6 +83,32 @@ def make_auto_model():
         return jsonify({"message": "Model successfully created and saved!"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+
+#get all models
+@model_bp.route("/api/getmodels", methods=['GET'])
+def return_models():
+    try:
+        data = Model.query.all()
+                # Serializace dat do seznamu slovníků
+        model_list = [
+            {
+                'id': model.id,
+                'name': model.model_name,
+                "accuracy": model.accuracy,
+                "error": model.error,
+                "dataset": model.dataset,
+
+            } 
+            for model in data
+        ]
+        
+        # Vrácení dat jako JSON odpověď
+        return jsonify(model_list)
+    except Exception as e:
+        print(str(e))
+        return jsonify({"error": str(e)}), 500
+    
 
 #download selected model
 @model_bp.route('/api/download-model/<int:model_id>', methods=['GET'])
