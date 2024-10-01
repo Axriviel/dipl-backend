@@ -129,6 +129,12 @@ def download_model(model_id):
 @model_bp.route('/api/delete-model/<int:model_id>', methods=['DELETE'])
 def delete_model(model_id):
     try:
+        model = Model.query.get(model_id)
+
+        # Ověření, zda záznam existuje
+        if not model:
+            return jsonify({"error": "Model not found in the database"}), 404
+        
         model_path = f"userModels/model_{model_id}.keras"  # cesta k modelu
         print(model_path)
 
@@ -138,6 +144,11 @@ def delete_model(model_id):
 
         # Smazání souboru
         os.remove(model_path)
+                # Smazání záznamu z databáze
+        db.session.delete(model)
+        db.session.commit()
+
         return jsonify({"message": "Model successfully deleted"}), 200
     except Exception as e:
+        db.session.rollback()  # Vrácení změn v případě chyby
         return jsonify({"error": str(e)}), 500
