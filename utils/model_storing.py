@@ -1,11 +1,23 @@
 from tensorflow import keras
+import os
 
-def save_model(model, path): #uložení modelu
+def save_model(model, user_id, model_id):  # Přidáme model_id jako argument
     try:
-        model.save(path)
-        print("Model byl úspěšně uložen")
-    except:
-        print("Nepodařilo se uložit model")
+        # path to user folder
+        user_folder = os.path.join("userModels", str(user_id))
+        
+        # create if not found
+        if not os.path.exists(user_folder):
+            os.makedirs(user_folder)
+        
+        # save model to folder
+        model_path = os.path.join(user_folder, f"model_{model_id}.keras")
+        model.save(model_path)
+        
+        print(f"Model saved to {model_path}")
+    except Exception as e:
+        print(f"Nepodařilo se uložit model: {str(e)}")
+
 
 def load_model(path): #načtení modelu
     try:
