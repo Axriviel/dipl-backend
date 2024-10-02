@@ -55,11 +55,21 @@ def make_model():
         layers = data['layers']
         model = create_model(layers)
 
-        save_model(model, "userModels/" + "model.keras")
-        loaded_model = load_model("userModels/" + "model.keras")
+        #save_model(model, "userModels/" + "model.keras")
+        #loaded_model = load_model("userModels/" + "model.keras")
 
-        loaded_model.summary()
-        create_notification(for_user_id = session.get("user_id"), message = "Model created")
+        #loaded_model.summary()
+
+        # new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = "test", user_id = user_id)
+        # db.session.add(new_model)
+        # db.session.commit()
+        # model_id = new_model.id
+
+        # save_model(model, user_id, model_id)
+        # create_notification(for_user_id = session.get("user_id"), message = "Model created")
+
+        dataset = "test"
+        save_and_notification(model, user_id, dataset)
         
         #task finished, remove user from active
         active_tasks.pop(user_id, None)
@@ -90,17 +100,21 @@ def make_auto_model():
         print("Opt method: " + opt_method)
         
         active_tasks[user_id] = True
+        create_notification(for_user_id = user_id, message = "Creating started")
+
         model = create_auto_model(dataset, task, user_id)
         time.sleep(10)
 
-        #přesunout do funkce
-        new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
-        db.session.add(new_model)
-        db.session.commit()
-        model_id = new_model.id
+        #přesunout do funkce -> save_and_notification
+        # new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
+        # db.session.add(new_model)
+        # db.session.commit()
+        # model_id = new_model.id
 
-        save_model(model, user_id, model_id)
-        create_notification(for_user_id = user_id, message = "Model creating")
+        # save_model(model, user_id, model_id)
+        # create_notification(for_user_id = user_id, message = "Model creating")
+
+        save_and_notification(model, user_id, dataset)
 
         #save_model(model, "userModels/" + "model.keras")
         #loaded_model = load_model("userModels/" + "model.keras")
@@ -118,7 +132,10 @@ def make_auto_model():
 @model_bp.route("/api/getmodels", methods=['GET'])
 def return_models():
     try:
-        data = Model.query.all()
+        user_id = session.get('user_id')
+
+        # Načtení modelů pouze pro daného uživatele
+        data = Model.query.filter_by(user_id=user_id).all()
                 # Serializace dat do seznamu slovníků
         model_list = [
             {
@@ -173,14 +190,29 @@ def delete_model(model_id):
         if not os.path.exists(model_path):
             return jsonify({"error": "Model not found"}), 404
 
-        # Smazání souboru
-        os.remove(model_path)
 
         # Smazání záznamu z databáze
         db.session.delete(model)
         db.session.commit()
 
+        os.remove(model_path)
+
         return jsonify({"message": "Model successfully deleted"}), 200
     except Exception as e:
         db.session.rollback()  # Vrácení změn v případě chyby
         return jsonify({"error": str(e)}), 500
+    
+
+#save model and create notification
+def save_and_notification(model, user_id, dataset):
+        try:
+            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
+            db.session.add(new_model)
+            db.session.commit()
+            model_id = new_model.id
+
+            save_model(model, user_id, model_id)
+            create_notification(for_user_id = user_id, message = "Model created")
+        except Exception as e:
+            print("Error in save_and_notification" + e)
+            raise 
