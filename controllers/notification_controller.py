@@ -8,6 +8,9 @@ from controllers.user_controller import session
 notification_bp = Blueprint('notification_bp', __name__)
 
 
+def create_notification(for_user_id, message):
+    return Config.notification_service.create_notification(for_user_id = for_user_id, message = message)
+
 @notification_bp.route("/notifications", methods=["GET"])
 def get_notifications():
     # user_id = request.args.get('user')
@@ -54,6 +57,28 @@ def get_notifications():
         print(str(e))
         return jsonify({"error": str(e)}), 500
 
+@notification_bp.route("/notifications/<int:notification_id>/mark-as-read", methods=["PUT"])
+def mark_as_read(notification_id):
+    user_id = session.get("user_id")
 
-def create_notification(for_user_id, message):
-    return Config.notification_service.create_notification(for_user_id = for_user_id, message = message)
+    if not user_id:
+        return jsonify({"error": "User ID is required"}), 400
+
+    try:
+        # Najdeme notifikaci podle ID a ověříme, že patří aktuálnímu uživateli
+        notification = Notification.query.filter_by(id=notification_id, user_id=user_id).first()
+
+        if not notification:
+            return jsonify({"error": "Notification not found"}), 404
+
+        # Aktualizujeme stav was_read
+        notification.was_read = True
+        db.session.commit()
+
+        return jsonify({"message": "Notification marked as read successfully."}), 200
+    except Exception as e:
+        print(str(e))
+        return jsonify({"error": str(e)}), 500
+
+
+
