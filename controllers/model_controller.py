@@ -7,16 +7,19 @@ from flask import send_file
 from controllers.notification_controller import create_notification
 from controllers.user_controller import session
 from models.model import Model, db
+from utils.dataset_storing import save_dataset, load_dataset
 import random
 import os
 import time
+import json
 
 
 model_bp = Blueprint('model_bp', __name__)
 
+
 active_tasks = {}
 
-def create_model(layers):
+def create_model(layers, dataset):
     model = Sequential()
     for layer in layers:
         if layer['type'] == 'Dense':
@@ -30,98 +33,98 @@ def create_model(layers):
     return model
 
 
-def create_auto_model(dataset, task, user_name):
+def create_auto_model(dataset, task, opt_method, user_id ):
     model = Sequential()
     model.add(Dense(8))
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model
 
+
+
 #create task make model
 @model_bp.route('/api/save-model', methods=['POST'])
 def make_model():
-    data = request.get_json()
-    user_id = session.get('user_id')
-
-    if not data or 'layers' not in data:
-        return jsonify({"error": "Invalid data format"}), 400
-    
-        #user already has running task
-    if user_id in active_tasks:
-        return jsonify({"error": "Task already running. Please wait until it finishes."}), 400
-
     try:
-        active_tasks[user_id] = True
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"error": "User not authenticated"}), 401
 
-        layers = data['layers']
-        model = create_model(layers)
+        # Kontrola, zda soubor byl nahrán
+        if 'datasetFile' not in request.files:
+            return jsonify({"error": "No dataset file"}), 400
 
-        #save_model(model, "userModels/" + "model.keras")
-        #loaded_model = load_model("userModels/" + "model.keras")
+        file = request.files['datasetFile']
+        dataset_name = file.filename
 
-        #loaded_model.summary()
 
-        # new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = "test", user_id = user_id)
-        # db.session.add(new_model)
-        # db.session.commit()
-        # model_id = new_model.id
+        dataset_path = save_dataset(file, user_id)
+        dataset = load_dataset(dataset_path)
 
-        # save_model(model, user_id, model_id)
-        # create_notification(for_user_id = session.get("user_id"), message = "Model created")
+        # Načtení vrstev z formuláře
+        layers = request.form.get('layers')
+        if not layers:
+            return jsonify({"error": "No model layers provided"}), 400
 
-        dataset = "test"
-        save_and_notification(model, user_id, dataset)
+        layers = json.loads(layers)  # Konverze JSON řetězce na Python objekt
         
-        #task finished, remove user from active
-        active_tasks.pop(user_id, None)
-        return jsonify({"message": "Model successfully created and saved!"}), 200
+        # Vytvoření modelu
+        create_notification(for_user_id = user_id, message = "Creating started")
+        model = create_model(layers, dataset)
+        
+        # Uložení modelu a notifikace
+        save_and_notification(model, user_id, dataset_name)
+
+        return jsonify({"message": "Model successfully created and dataset uploaded!"}), 200
     except Exception as e:
-        active_tasks.pop(user_id, None)
         return jsonify({"error": str(e)}), 500
     
 #create task make model
 @model_bp.route('/api/models/save-auto-model', methods=['POST'])
 def make_auto_model():
-    data = request.get_json()
-    user_id = session.get('user_id')
-
-    if not data:
-        return jsonify({"error": "Invalid data format"}), 400
-    
-    #user already has running task
-    if user_id in active_tasks:
-        return jsonify({"error": "Task already running. Please wait until it finishes."}), 400
-
+    #data = request.get_json()
     try:
-        dataset = data["dataset"]
-        task = data['taskType']
-        opt_method = data["optMethod"]
-        print(dataset)
-        print(task)
-        print("Opt method: " + opt_method)
+        user_id = session.get('user_id')
+
+        if not user_id:
+            return jsonify({"error": "User not authenticated"}), 401
         
+        #user already has running task
+        if user_id in active_tasks:
+            return jsonify({"error": "Task already running. Please wait until it finishes."}), 400
+
+        if 'datasetFile' not in request.files:
+            return jsonify({"error": "No file part"}), 400
+        file = request.files['datasetFile']
+        dataset_name = file.filename
+
         active_tasks[user_id] = True
+
+        dataset_path = save_dataset(file, user_id)
+        # Přečteme taskType a optMethod z formulářových dat
+        task_type = request.form.get('taskType')
+        opt_method = request.form.get('optMethod')
+        print(f"Task Type: {task_type}")
+        print(f"Optimization Method: {opt_method}")
+
+        #read dataset
+        dataset = load_dataset(dataset_path)
+        
         create_notification(for_user_id = user_id, message = "Creating started")
-
-        model = create_auto_model(dataset, task, user_id)
+        model = create_auto_model(dataset, task_type, opt_method, user_id)
         time.sleep(10)
-
         #přesunout do funkce -> save_and_notification
         # new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
         # db.session.add(new_model)
         # db.session.commit()
         # model_id = new_model.id
-
         # save_model(model, user_id, model_id)
         # create_notification(for_user_id = user_id, message = "Model creating")
-
-        save_and_notification(model, user_id, dataset)
-
+        save_and_notification(model, user_id, dataset_name)
         #save_model(model, "userModels/" + "model.keras")
         #loaded_model = load_model("userModels/" + "model.keras")
-
         #loaded_model.summary()
-
         active_tasks.pop(user_id, None)
+        #upravit, abych vrátil info "model se vytváří" a uložení a notifikaci udělat mimo
         return jsonify({"message": "Model successfully created and saved!"}), 200
     except Exception as e:
         active_tasks.pop(user_id, None)
@@ -214,5 +217,5 @@ def save_and_notification(model, user_id, dataset):
             save_model(model, user_id, model_id)
             create_notification(for_user_id = user_id, message = "Model created")
         except Exception as e:
-            print("Error in save_and_notification" + e)
+            print("Error in save_and_notification" + str(e))
             raise 

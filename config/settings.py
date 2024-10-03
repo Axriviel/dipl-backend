@@ -10,6 +10,9 @@ class Config:
     SECRET_KEY = os.urandom(24).hex()
     CORS_SUPPORTS_CREDENTIALS = True
 
+    DATASET_FOLDER = 'datasets'
+    ALLOWED_EXTENSIONS = {'csv'}
+
     # Inicializace UserRepository a UserService
     user_repository = UserRepository()
     user_service = UserService(user_repository)
