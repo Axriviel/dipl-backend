@@ -7,3 +7,4 @@ Flask-JWT-Extended
 Flask-SQLAlchemy
 Flask-Bcrypt
 flask-cors
+pandas==2.2.3
