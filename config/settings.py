@@ -11,8 +11,7 @@ class Config:
     CORS_SUPPORTS_CREDENTIALS = True
 
     DATASET_FOLDER = 'datasets'
-    ALLOWED_EXTENSIONS = {'csv'}
-
+    ALLOWED_EXTENSIONS = {'csv', 'jpg', 'jpeg', 'png', 'tfrecord', 'h5', 'json'}
     # Inicializace UserRepository a UserService
     user_repository = UserRepository()
     user_service = UserService(user_repository)
