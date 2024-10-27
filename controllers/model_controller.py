@@ -8,6 +8,7 @@ from controllers.notification_controller import create_notification
 from controllers.user_controller import session
 from models.model import Model, db
 from utils.dataset_storing import save_dataset, load_dataset
+from optimizers.essentials import create_optimized_model
 import random
 import os
 import time
@@ -19,18 +20,18 @@ model_bp = Blueprint('model_bp', __name__)
 
 active_tasks = {}
 
-def create_model(layers, dataset):
-    model = Sequential()
-    for layer in layers:
-        if layer['type'] == 'Dense':
-            model.add(Dense(
-                units=layer['units'],
-                activation=layer['activation'],
-                input_shape=layer.get('input_shape', None)
-            ))
+# def create_model(layers, dataset):
+#     model = Sequential()
+#     for layer in layers:
+#         if layer['type'] == 'Dense':
+#             model.add(Dense(
+#                 units=layer['units'],
+#                 activation=layer['activation'],
+#                 input_shape=layer.get('input_shape', None)
+#             ))
 
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    return model
+#     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+#     return model
 
 
 def create_auto_model(dataset, task, opt_method, user_id ):
@@ -54,25 +55,41 @@ def make_model():
             return jsonify({"error": "No dataset file"}), 400
 
         file = request.files['datasetFile']
-        dataset_name = file.filename
+        # dataset_name = file.filename
 
 
         dataset_path = save_dataset(file, user_id)
-        dataset = load_dataset(dataset_path)
+        #loaded_dataset = load_dataset(dataset_path)
 
         # Načtení vrstev z formuláře
         layers = request.form.get('layers')
         if not layers:
             return jsonify({"error": "No model layers provided"}), 400
 
-        layers = json.loads(layers)  # Konverze JSON řetězce na Python objekt
+        layers = json.loads(layers)  # Konverze JSON řetězce na Python dictionary
+        print(layers)
+
+        settings = request.form.get("settings")
+        if not settings:
+            return jsonify({"error": "No model settings provided"}), 400
         
+        settings = json.loads(settings)
+        print(settings)
+
+
+
         # Vytvoření modelu
-        create_notification(for_user_id = user_id, message = "Creating started")
-        model = create_model(layers, dataset)
+        # create_notification(for_user_id = user_id, message = "Creating started")
+        # model = create_model(layers, dataset)
+        # model = create_functional_model(layers, settings, dataset)
+        best_model = create_optimized_model(layers, settings, dataset_path)
+        print(best_model[0])
+        print(best_model[1])
         
+        # model.summary()
+
         # Uložení modelu a notifikace
-        save_and_notification(model, user_id, dataset_name)
+        # save_and_notification(model, user_id, dataset_name)
 
         return jsonify({"message": "Model successfully created and dataset uploaded!"}), 200
     except Exception as e:
