@@ -47,58 +47,62 @@ app.register_blueprint(feedback_bp)
 app.register_blueprint(notification_bp)
 
 
-@app.route('/test', methods=['GET'])
-def get_users():
-    users = Config.user_service.getAll()
-    if users is None:
-        app.logger.error("No users found!")
-        return jsonify({'error': 'No users found'}), 404
+@app.route("/", methods=["GET"])
+def is_alive():
+    return jsonify({"message" : "I am alive"}), 200
 
-    app.logger.info(f"Found users: {users}")
-    return jsonify([{'id': user.id, 'username': user.username} for user in users])    #return users
+# @app.route('/test', methods=['GET'])
+# def get_users():
+#     users = Config.user_service.getAll()
+#     if users is None:
+#         app.logger.error("No users found!")
+#         return jsonify({'error': 'No users found'}), 404
 
-@app.route('/api/data', methods=['POST'])
-def receive_data():
-    data = request.get_json()
-    name = data.get('name')
-    email = data.get('email')
-    test = data.get("test")
+#     app.logger.info(f"Found users: {users}")
+#     return jsonify([{'id': user.id, 'username': user.username} for user in users])    #return users
+
+# @app.route('/api/data', methods=['POST'])
+# def receive_data():
+#     data = request.get_json()
+#     name = data.get('name')
+#     email = data.get('email')
+#     test = data.get("test")
     
-    # Zpracování dat podle potřeby
-    print(f"Received data - Name: {name}, Email: {email}, Test: {test}")
+#     # Zpracování dat podle potřeby
+#     print(f"Received data - Name: {name}, Email: {email}, Test: {test}")
     
-    response = {
-        'status': 'success',
-        'data': data
-    }
-    return jsonify(response)
+#     response = {
+#         'status': 'success',
+#         'data': data
+#     }
+#     return jsonify(response)
 
-# Endpoint pro zpracování požadavků
-@app.route('/', methods=['GET'])
-async def calculate():
-    user_id = str(5)
-    results = []
-    if user_id in user_results:
-        return jsonify({"status" : "You already have a task running"}), 409
-    else:    
-        task = asyncio.create_task(controllers.runner.run_async_task("xx", "xd"))
-        user_results[user_id] = task
+# # Endpoint pro zpracování požadavků
+# @app.route('/', methods=['GET'])
+# async def calculate():
+#     user_id = str(5)
+#     results = []
+#     if user_id in user_results:
+#         return jsonify({"status" : "You already have a task running"}), 409
+#     else:    
+#         task = asyncio.create_task(controllers.runner.run_async_task("xx", "xd"))
+#         user_results[user_id] = task
 
-    return jsonify({'user_id': user_id}), 202
+#     return jsonify({'user_id': user_id}), 202
 
-@app.route('/result/<user_id>', methods=['GET'])
-async def get_result(user_id):
-    if user_id in user_results:
-        task = user_results[user_id]
+# @app.route('/result/<user_id>', methods=['GET'])
+# async def get_result(user_id):
+#     if user_id in user_results:
+#         task = user_results[user_id]
 
-        if task.done():
-            result = task.result()
-            del user_results[user_id]  # odstraníme výsledek po vrácení
-            return jsonify({'result': result})
-        else:
-            return jsonify({'status': 'running'}), 202  # vrátíme status, že výpočet stále běží
-    else:
-        return jsonify({'error': 'Výsledek pro zadané ID nenalezen'}), 404
+#         if task.done():
+#             result = task.result()
+#             del user_results[user_id]  # odstraníme výsledek po vrácení
+#             return jsonify({'result': result})
+#         else:
+#             return jsonify({'status': 'running'}), 202  # vrátíme status, že výpočet stále běží
+#     else:
+#         return jsonify({'error': 'Výsledek pro zadané ID nenalezen'}), 404
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
