@@ -17,7 +17,7 @@ def create_optimized_model(layers, settings, dataset_path):
         print("dataset processed")
 
         # Spuštění random search, můžeme zvolit například sledování metriky val_loss
-        b_model, b_metric_val = random_search(layers, settings, 
+        b_model, b_metric_val, b_metric_history = random_search(layers, settings, 
                                                   x_train=x_train, y_train=y_train, 
                                                   x_val=x_test, y_val=y_test, 
                                                   num_models=5, num_runs=3, 
@@ -25,9 +25,9 @@ def create_optimized_model(layers, settings, dataset_path):
 #                                                   monitor_metric='val_loss')
                                                   monitor_metric=settings["monitor_metric"])
         
-        print(f"Best model found with val_loss: {b_metric_val}")
+        print(f"Best model found with {settings['monitor_metric']} : {b_metric_val}")
         b_model.summary()
-        return (b_model, b_metric_val)
+        return b_model, b_metric_val, b_metric_history
 
     elif opt_method == "genetic":
         raise Exception("Not yet supported")

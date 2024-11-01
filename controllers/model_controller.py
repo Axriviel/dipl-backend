@@ -79,17 +79,18 @@ def make_model():
 
 
         # Vytvoření modelu
-        # create_notification(for_user_id = user_id, message = "Creating started")
-        # model = create_model(layers, dataset)
-        # model = create_functional_model(layers, settings, dataset)
-        best_model = create_optimized_model(layers, settings, dataset_path)
-        print(best_model[0])
-        print(best_model[1])
+        create_notification(for_user_id = user_id, message = "Creating started")
+
+        best_model, best_metric, best_metric_history = create_optimized_model(layers, settings, dataset_path)
+        print(best_model)
+        print(best_metric)
+        print(best_metric_history)
         
         # model.summary()
 
         # Uložení modelu a notifikace
-        # save_and_notification(model, user_id, dataset_name)
+        #změnit na dataset_name
+        save_and_notification(best_model, user_id, dataset = dataset_path, metric_value = best_metric, watched_metric = settings["monitor_metric"], metric_values_history = best_metric_history)
 
         return jsonify({"message": "Model successfully created and dataset uploaded!"}), 200
     except Exception as e:
@@ -157,11 +158,16 @@ def return_models():
         # Načtení modelů pouze pro daného uživatele
         data = Model.query.filter_by(user_id=user_id).all()
                 # Serializace dat do seznamu slovníků
+
+                #v podstatě viewmodel - definovat mimo
         model_list = [
             {
                 'id': model.id,
                 'name': model.model_name,
                 "accuracy": model.accuracy,
+                "metric_value": model.metric_value,
+                "watched_metric": model.watched_metric,
+                "metric_values_history": model.metric_values_history,
                 "error": model.error,
                 "dataset": model.dataset,
 
@@ -224,15 +230,15 @@ def delete_model(model_id):
     
 
 #save model and create notification
-def save_and_notification(model, user_id, dataset):
+def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}]):
         try:
-            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
+            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = metric_value, watched_metric = round(watched_metric, 3), metric_values_history = metric_values_history, error = 0.07, dataset = dataset, user_id = user_id)
             db.session.add(new_model)
             db.session.commit()
             model_id = new_model.id
 
             save_model(model, user_id, model_id)
-            create_notification(for_user_id = user_id, message = "Model created")
+            create_notification(for_user_id = user_id, message = "Model "+ new_model.model_name +" created")
         except Exception as e:
             print("Error in save_and_notification" + str(e))
             raise 
