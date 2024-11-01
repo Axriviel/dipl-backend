@@ -5,9 +5,19 @@ from flask_bcrypt import Bcrypt
 bcrypt = Bcrypt()
 user_bp = Blueprint('user_bp', __name__)
 
+# Kontrola API klíče
+def validate_api_key():
+    req_api_key = request.headers.get('X-API-KEY')
+    from config.settings import Config
+    return req_api_key == Config.API_KEY
+
 #registration
 @user_bp.route('/api/user/register', methods=['POST'])
 def register():
+
+    if not validate_api_key():
+        return jsonify({'error': 'Unauthorized request'}), 403
+
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -27,6 +37,9 @@ def register():
 #login
 @user_bp.route('/api/user/login', methods=['POST'])
 def login():
+    if not validate_api_key():
+        return jsonify({'error': 'Unauthorized request'}), 403
+
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')

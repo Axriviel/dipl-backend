@@ -6,6 +6,7 @@ from services.notification_service import NotificationService
 
 class Config:
     SQLALCHEMY_DATABASE_URI = 'sqlite:///backend.db'
+    API_KEY = "ASF4561.AF545wagdA56fds89911a2vaASF32!"
     JWT_SECRET_KEY = 'your_jwt_secret_key'
     SECRET_KEY = os.urandom(24).hex()
     CORS_SUPPORTS_CREDENTIALS = True
