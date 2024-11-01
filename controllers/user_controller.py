@@ -5,6 +5,8 @@ from flask_bcrypt import Bcrypt
 bcrypt = Bcrypt()
 user_bp = Blueprint('user_bp', __name__)
 
+registrations_allowed = True
+
 # Kontrola API klíče
 def validate_api_key():
     req_api_key = request.headers.get('X-API-KEY')
@@ -14,7 +16,9 @@ def validate_api_key():
 #registration
 @user_bp.route('/api/user/register', methods=['POST'])
 def register():
-
+    if not registrations_allowed:
+        return jsonify({'error': 'Registrations not allowed atm'}), 403
+    
     if not validate_api_key():
         return jsonify({'error': 'Unauthorized request'}), 403
 
