@@ -45,6 +45,8 @@ def create_auto_model(dataset, task, opt_method, user_id ):
 #create task make model
 @model_bp.route('/api/save-model', methods=['POST'])
 def make_model():
+
+    #přidat kontrolu na to, aby uživatel mohl spustit pouze 1 task
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -232,7 +234,7 @@ def delete_model(model_id):
 #save model and create notification
 def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}]):
         try:
-            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = metric_value, watched_metric = round(watched_metric, 3), metric_values_history = metric_values_history, error = 0.07, dataset = dataset, user_id = user_id)
+            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, error = 0.07, dataset = dataset, user_id = user_id)
             db.session.add(new_model)
             db.session.commit()
             model_id = new_model.id
