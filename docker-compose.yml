@@ -1,5 +1,6 @@
 volumes:
   instance_data:
+  user_models:
 
 services:
   backend:
@@ -10,3 +11,4 @@ services:
       - FLASK_ENV=production
     volumes:
       - instance_data:/app/instance
+      - user_models:/app/userModels
