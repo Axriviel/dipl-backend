@@ -34,6 +34,14 @@ active_tasks = {}
 #     return model
 
 
+def check_active_task(user_id):
+    if user_id in active_tasks:
+        return False
+    else:
+        active_tasks[user_id] = True
+        return True
+
+
 def create_auto_model(dataset, task, opt_method, user_id ):
     model = Sequential()
     model.add(Dense(8))
@@ -56,8 +64,11 @@ def make_model():
         if 'datasetFile' not in request.files:
             return jsonify({"error": "No dataset file"}), 400
 
+        if not check_active_task(user_id):
+            return jsonify({"error": "Task already running. Please wait until it finishes."}), 400
+
         file = request.files['datasetFile']
-        # dataset_name = file.filename
+        dataset_name = file.filename
 
 
         dataset_path = save_dataset(file, user_id)
@@ -92,10 +103,14 @@ def make_model():
 
         # Uložení modelu a notifikace
         #změnit na dataset_name
-        save_and_notification(best_model, user_id, dataset = dataset_path, metric_value = best_metric, watched_metric = settings["monitor_metric"], metric_values_history = best_metric_history)
+        save_and_notification(best_model, user_id, dataset = dataset_name, metric_value = best_metric, watched_metric = settings["monitor_metric"], metric_values_history = best_metric_history)
+        
+        active_tasks.pop(user_id, None)
 
         return jsonify({"message": "Model successfully created and dataset uploaded!"}), 200
+    
     except Exception as e:
+        active_tasks.pop(user_id, None)
         return jsonify({"error": str(e)}), 500
     
 #create task make model
