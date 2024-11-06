@@ -199,6 +199,34 @@ def return_models():
         return jsonify({"error": str(e)}), 500
     
 
+#get model details
+@model_bp.route('/api/get-details/<int:model_id>', methods=['GET'])
+def get_model_details(model_id):
+    try:
+        model_path = os.path.join("userModels", str(session.get("user_id")), f"model_{model_id}.keras")
+        loaded_model = load_model(model_path)
+
+        layers_info = []
+        for layer in loaded_model.layers:
+            layer_info = {
+                'layer_name': layer.name,
+                'layer_type': layer.__class__.__name__,
+                #'output_shape': layer.shape,  # Výstupní tvar vrstvy
+                'num_params': layer.count_params(),  # Počet parametrů
+                'trainable': layer.trainable  # Jestli je vrstva trénovatelná
+            }
+            layers_info.append(layer_info)
+
+        # Souhrn modelu v JSON formátu
+        model_summary = {
+            'model_name': loaded_model.name,
+            'layers': layers_info
+        }
+        return jsonify(model_summary), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 #download selected model
 @model_bp.route('/api/download-model/<int:model_id>', methods=['GET'])
 def download_model(model_id):
