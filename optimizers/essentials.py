@@ -67,7 +67,8 @@ def process_layer_params(layer):
     
     return processed_params
 
-def get_layer(layer):
+#upravit a model předávat jinak, pokud to půjde
+def get_layer(layer, model):
     lp = process_layer_params(layer)
     lt = lp["type"].lower()
     lp.pop("type")
@@ -78,6 +79,7 @@ def get_layer(layer):
     'input': Input,
     'dense': Dense,
     'conv2d': Conv2D,
+    'generator': Generator
     # Můžeš přidat další vrstvy podle potřeby
     }
     
@@ -85,9 +87,16 @@ def get_layer(layer):
     if lt in layer_switch:
         layer_class = layer_switch[lt]  # Získáme třídu vrstvy z našeho slovníku
 
-        if layer_class == "generator": #return instance of generator with required configuration
-            pass
-        
+        if lt == "generator": #return instance of generator with required configuration
+            print(lp["possibleLayers"])
+            
+            # Vytvoření instance generátoru s odpovídající konfigurací
+            gen_instance = layer_class()
+            gen_instance.setRules(lp["possibleLayers"])  # Nastavení pravidel
+            
+            #size je kolik vrstev přidáváme, inp je dosud vytvořený model a firstLayer je vrstva z pravidel, která se vezme jako první
+            return gen_instance.generateFunc(size=2, inp=model, firstLayer="1730893652266")
+               
         return layer_class(**lp)  # Vytvoříme instanci vrstvy s parametry
     else:
         raise ValueError(f"Unsupported layer type: {lt}")
@@ -99,7 +108,7 @@ def create_functional_model(layers, settings):
     layer_outputs = {}
 
     # 1. Nejprve vytvoříme vstupní vrstvu
-    input_layer = get_layer(layers[0])
+    input_layer = get_layer(layers[0], model=None)
     layer_outputs[layers[0]['id']] = input_layer
     
     # 2. Pro každou další vrstvu zpracujeme vstupy a propojíme vrstvy
@@ -118,9 +127,14 @@ def create_functional_model(layers, settings):
             input_tensor = Concatenate()(input_tensors)
             #raise ValueError("Multiple inputs not supported yet")
         
+        
+        if layer["type"]=="Generator":
+            print("jdeme generator")
+            output_tensor = get_layer(layer, input_tensor)
+        else:
         # Vytvoříme vrstvu a propojíme ji se vstupy
-        new_layer = get_layer(layer)
-        output_tensor = new_layer(input_tensor)
+            new_layer = get_layer(layer, input_tensor)
+            output_tensor = new_layer(input_tensor)
         
         # Uložíme výstup nové vrstvy pod její id
         layer_outputs[layer['id']] = output_tensor
@@ -148,3 +162,68 @@ def create_functional_model(layers, settings):
     )
     
     return model
+
+
+
+class Generator:
+    def __init__(self, attempts=5):
+        self.rules = {}
+        self.attempts = attempts
+
+    def setRules(self, layers):
+        """Nastaví pravidla pro vrstvy podle možných následných vrstev."""
+        rules = {}
+        for layer in layers:
+            layer_id = layer["id"]
+            # Uložení typu vrstvy a zpracovaných parametrů
+            possible_next_layers = [
+                (l["type"], l["id"]) for l in layers if l["id"] in layer.get("inputs", [])
+            ]
+            rules[layer_id] = {
+                "layer": layer,
+                "params": process_layer_params(layer),
+                "next_layers": possible_next_layers
+            }
+        self.rules = rules
+
+    def generateFunc(self, size, inp, out=None, firstLayer=None):
+        """Generuje strukturu neuronové sítě s ohledem na specifikovaná pravidla."""
+        inpStruct = inp
+        attempts = self.attempts
+
+        while attempts > 0:
+            try:
+                struct = inpStruct
+                current_layer_id = firstLayer if firstLayer else list(self.rules.keys())[0]
+                
+                for i in range(size):
+                    rule = self.rules.get(current_layer_id, None)
+                    if rule is None:
+                        raise ValueError(f"Layer with ID {current_layer_id} not found in rules.")
+                    
+                    # Použití get_layer pro vytvoření vrstvy se zpracovanými parametry
+                    new_layer = get_layer(rule["layer"], struct)
+                    struct = new_layer(struct) if callable(new_layer) else new_layer
+                    print("Vrstva přidána s parametry:", rule["params"])
+
+                    # Výběr další vrstvy z možných následujících vrstev
+                    if rule["next_layers"]:
+                        next_layer_id = random.choice([layer_id for _, layer_id in rule["next_layers"]])
+                        current_layer_id = next_layer_id
+                    else:
+                        break
+
+                if out is not None:
+                    return out(struct)
+                else:
+                    print("toto je struktura:")
+                    print(struct)
+                    return struct
+
+            except Exception as e:
+                print(f"Error during generation: {e}")
+                attempts -= 1
+
+        print("Nepodařilo se vygenerovat funkční strukturu v zadaném počtu pokusů.")
+        return inpStruct
+
