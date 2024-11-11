@@ -5,7 +5,7 @@ from utils.dataset_storing import load_dataset
 from sklearn.model_selection import train_test_split
 
 #
-def create_optimized_model(layers, settings, dataset_path):
+def create_optimized_model(layers, settings, dataset_path, dataset_config):
     
     opt_method = settings["opt_algorithm"]
     
@@ -13,7 +13,7 @@ def create_optimized_model(layers, settings, dataset_path):
     if opt_method == "random":
         from optimizers.random_optimizer import random_search
 
-        x_train, x_test, y_train, y_test = process_dataset(dataset_path)
+        x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
         print("dataset processed")
 
         # Spuštění random search, můžeme zvolit například sledování metriky val_loss
@@ -35,13 +35,18 @@ def create_optimized_model(layers, settings, dataset_path):
     return None
 
 #přidat podmínečné zpracování - část na FE a tady asi taky podle toho, co to je za dataset (csv, nebo něco jiného?), stejně tak něco s tím y
-def process_dataset(dataset_path):
-    dataset = load_dataset(dataset_path)
-    x = dataset.iloc[:,0:8] 
-    y = dataset.iloc[:,8]
-    # print(x)
-    # print(y)
-    return train_test_split(x, y, test_size=0.2) 
+def process_dataset(dataset_path, dataset_config):
+    try:
+        dataset = load_dataset(dataset_path)
+        #x = dataset[x_columns] 
+        x = dataset.iloc[:,0:dataset_config["x_num"]] 
+        y = dataset.iloc[:,(dataset_config["y_num"]-1)]
+        #y = dataset[y_columns] 
+        # print(x)
+        # print(y)
+        return train_test_split(x, y, test_size = dataset_config["test_size"]) 
+    except Exception as e:
+        raise
 
 def generate_random_value(random_info):
     """Generate a random value based on the provided randomization info."""

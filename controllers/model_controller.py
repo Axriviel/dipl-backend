@@ -50,11 +50,10 @@ def create_auto_model(dataset, task, opt_method, user_id ):
 
 
 
-#create task make model
+from sklearn.model_selection import train_test_split
+
 @model_bp.route('/api/save-model', methods=['POST'])
 def make_model():
-
-    #přidat kontrolu na to, aby uživatel mohl spustit pouze 1 task
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -69,41 +68,30 @@ def make_model():
 
         file = request.files['datasetFile']
         dataset_name = file.filename
-
-
         dataset_path = save_dataset(file, user_id)
-        #loaded_dataset = load_dataset(dataset_path)
 
-        # Načtení vrstev z formuláře
-        layers = request.form.get('layers')
-        if not layers:
-            return jsonify({"error": "No model layers provided"}), 400
+        # load layers, settings and dataset_settings from form
+        layers = json.loads(request.form.get('layers', '[]'))
+        settings = json.loads(request.form.get('settings', '{}'))
+        dataset_config = json.loads(request.form.get('datasetConfig', '{}'))
 
-        layers = json.loads(layers)  # Konverze JSON řetězce na Python dictionary
-        print(layers)
+        print(dataset_config)
 
-        settings = request.form.get("settings")
-        if not settings:
-            return jsonify({"error": "No model settings provided"}), 400
         
-        settings = json.loads(settings)
-        print(settings)
-
+        #dataset processing prováděn v create_optimized_model
+        #dataset = load_dataset(dataset_path)
+        #X = dataset[x_columns]
+        #y = dataset[y_column]
+        
+        #x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
 
 
         # Vytvoření modelu
-        create_notification(for_user_id = user_id, message = "Creating started")
-
-        best_model, best_metric, best_metric_history = create_optimized_model(layers, settings, dataset_path)
-        print(best_model)
-        print(best_metric)
-        print(best_metric_history)
-        
-        # model.summary()
+        create_notification(for_user_id=user_id, message="Creating started")
+        best_model, best_metric, best_metric_history = create_optimized_model(layers, settings, dataset_path, dataset_config)
 
         # Uložení modelu a notifikace
-        #změnit na dataset_name
-        save_and_notification(best_model, user_id, dataset = dataset_name, metric_value = best_metric, watched_metric = settings["monitor_metric"], metric_values_history = best_metric_history)
+        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history)
         
         active_tasks.pop(user_id, None)
 
@@ -112,6 +100,70 @@ def make_model():
     except Exception as e:
         active_tasks.pop(user_id, None)
         return jsonify({"error": str(e)}), 500
+
+
+# #create task make model
+# @model_bp.route('/api/save-model', methods=['POST'])
+# def make_model():
+
+#     #přidat kontrolu na to, aby uživatel mohl spustit pouze 1 task
+#     try:
+#         user_id = session.get('user_id')
+#         if not user_id:
+#             return jsonify({"error": "User not authenticated"}), 401
+
+#         # Kontrola, zda soubor byl nahrán
+#         if 'datasetFile' not in request.files:
+#             return jsonify({"error": "No dataset file"}), 400
+
+#         if not check_active_task(user_id):
+#             return jsonify({"error": "Task already running. Please wait until it finishes."}), 400
+
+#         file = request.files['datasetFile']
+#         dataset_name = file.filename
+
+
+#         dataset_path = save_dataset(file, user_id)
+#         #loaded_dataset = load_dataset(dataset_path)
+
+#         # Načtení vrstev z formuláře
+#         layers = request.form.get('layers')
+#         if not layers:
+#             return jsonify({"error": "No model layers provided"}), 400
+
+#         layers = json.loads(layers)  # Konverze JSON řetězce na Python dictionary
+#         print(layers)
+
+#         settings = request.form.get("settings")
+#         if not settings:
+#             return jsonify({"error": "No model settings provided"}), 400
+        
+#         settings = json.loads(settings)
+#         print(settings)
+
+
+
+#         # Vytvoření modelu
+#         create_notification(for_user_id = user_id, message = "Creating started")
+
+#         best_model, best_metric, best_metric_history = create_optimized_model(layers, settings, dataset_path)
+#         print(best_model)
+#         print(best_metric)
+#         print(best_metric_history)
+        
+#         # model.summary()
+
+#         # Uložení modelu a notifikace
+#         #změnit na dataset_name
+#         save_and_notification(best_model, user_id, dataset = dataset_name, metric_value = best_metric, watched_metric = settings["monitor_metric"], metric_values_history = best_metric_history)
+        
+#         active_tasks.pop(user_id, None)
+
+#         return jsonify({"message": "Model successfully created and dataset uploaded!"}), 200
+    
+#     except Exception as e:
+#         active_tasks.pop(user_id, None)
+#         return jsonify({"error": str(e)}), 500
     
 #create task make model
 @model_bp.route('/api/models/save-auto-model', methods=['POST'])
@@ -272,6 +324,20 @@ def delete_model(model_id):
     except Exception as e:
         db.session.rollback()  # Vrácení změn v případě chyby
         return jsonify({"error": str(e)}), 500
+    
+@model_bp.route('/api/get_column_names', methods=['POST'])
+def get_column_names():
+    file = request.files['file']
+    user_id = session.get('user_id')  # Doplníme user_id nebo jiný identifikátor
+
+    # Uložení souboru na server
+    file_path = save_dataset(file, user_id)  # Uloží soubor a vrátí cestu k souboru
+    
+    # Načtení názvů sloupců pomocí funkce `load_dataset`
+    dataset = load_dataset(file_path)
+    column_names = dataset.columns.tolist()
+    
+    return jsonify(column_names)
     
 
 #save model and create notification
