@@ -22,7 +22,7 @@ def get_notifications():
 
 
     if not user_id:
-        return jsonify({"error": "User name is required"}), 400
+        return jsonify({"error": "User is required"}), 400
     
     try:
         # Dotaz na notifikace uživatele
