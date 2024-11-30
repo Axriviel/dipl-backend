@@ -42,11 +42,11 @@ def check_active_task(user_id):
         return True
 
 
-def create_auto_model(dataset, task, opt_method, user_id ):
-    model = Sequential()
-    model.add(Dense(8))
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    return model
+# def create_auto_model(dataset, task, opt_method, user_id ):
+#     model = Sequential()
+#     model.add(Dense(8))
+#     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+#     return model
 
 
 
@@ -74,7 +74,10 @@ def make_model():
         layers = json.loads(request.form.get('layers', '[]'))
         settings = json.loads(request.form.get('settings', '{}'))
         dataset_config = json.loads(request.form.get('datasetConfig', '{}'))
-
+        
+        nni_config = settings["NNI"]
+        print(nni_config)
+        
         print(dataset_config)
 
         
@@ -88,10 +91,11 @@ def make_model():
 
         # Vytvoření modelu
         create_notification(for_user_id=user_id, message="Creating started")
-        best_model, best_metric, best_metric_history = create_optimized_model(layers, settings, dataset_path, dataset_config)
+
+        best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config)
 
         # Uložení modelu a notifikace
-        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history)
+        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params, used_opt_method=settings["opt_algorithm"])
         
         active_tasks.pop(user_id, None)
 
@@ -237,6 +241,7 @@ def return_models():
                 "metric_value": model.metric_value,
                 "watched_metric": model.watched_metric,
                 "metric_values_history": model.metric_values_history,
+                "used_opt_method": model.used_opt_method,
                 "error": model.error,
                 "dataset": model.dataset,
 
@@ -276,6 +281,24 @@ def get_model_details(model_id):
         }
         return jsonify(model_summary), 200
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+#test param detail
+@model_bp.route('/api/get-params/<int:model_id>', methods=['GET'])
+def get_param_details(model_id):
+    try:
+        # Načtení modelu z databáze podle ID
+        model = Model.query.get(model_id)
+        
+        if not model:
+            return jsonify({"error": "Model not found"}), 404
+        
+        # Vrácení požadovaných dat jako JSON odpověď
+        return jsonify({
+            "creation_config": model.creation_config,
+            "used_params": model.used_params
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -341,9 +364,9 @@ def get_column_names():
     
 
 #save model and create notification
-def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}]):
+def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], used_opt_method="undefined"):
         try:
-            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, error = 0.07, dataset = dataset, user_id = user_id)
+            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, error = 0.07, dataset = dataset, user_id = user_id)
             db.session.add(new_model)
             db.session.commit()
             model_id = new_model.id

@@ -8,3 +8,4 @@ Flask-SQLAlchemy
 Flask-Bcrypt
 flask-cors
 pandas==2.2.3
+nni

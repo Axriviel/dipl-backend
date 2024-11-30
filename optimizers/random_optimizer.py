@@ -45,10 +45,11 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
     best_model = None
     best_metric_value = 0
     best_metric_history = []
+    best_model_params = []
 
     for i in range(num_models):
         print(f"Training model {i+1}")
-        model = create_functional_model(layers, settings)
+        model, used_params = create_functional_model(layers, settings)
         
         # Trénujeme model několikrát a získáme finální hodnotu metriky a historii metrik
         trained_model, metric_value, metric_history = train_multiple_times(
@@ -61,6 +62,7 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
             best_metric_value = metric_value
             best_model = trained_model  # Uložíme natrénovaný model s nejlepší finální metrikou
             best_metric_history = metric_history  # Uložíme historii metrik nejlepšího modelu
+            best_model_params = used_params #save best params
 
     print(f"Best model achieved {monitor_metric}: {best_metric_value}")
-    return best_model, best_metric_value, best_metric_history
+    return best_model, best_metric_value, best_metric_history, best_model_params

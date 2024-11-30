@@ -11,6 +11,7 @@ class Model(db.Model):
     metric_values_history = db.Column(JSON, nullable=True)  # JSON sloupec pro uložení epoch a hodnot
     creation_config = db.Column(JSON, nullable=True) #config used to create the model
     used_params = db.Column(JSON, nullable=True)  # used params
+    used_opt_method = db.Column(db.String(100), nullable=False)
     
     error = db.Column(db.Float, nullable=False)
     dataset = db.Column(db.String(100), nullable=False)
