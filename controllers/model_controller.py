@@ -232,20 +232,9 @@ def return_models():
         data = Model.query.filter_by(user_id=user_id).all()
                 # Serializace dat do seznamu slovníků
 
-                #v podstatě viewmodel - definovat mimo
+        from DTO.mapper import map_model_to_dto
         model_list = [
-            {
-                'id': model.id,
-                'name': model.model_name,
-                "accuracy": model.accuracy,
-                "metric_value": model.metric_value,
-                "watched_metric": model.watched_metric,
-                "metric_values_history": model.metric_values_history,
-                "used_opt_method": model.used_opt_method,
-                "error": model.error,
-                "dataset": model.dataset,
-
-            } 
+            map_model_to_dto(model).to_dict()
             for model in data
         ]
         

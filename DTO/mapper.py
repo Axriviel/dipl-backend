@@ -16,3 +16,18 @@ def map_feedback_to_dto(feedback):
         timestamp=feedback.timestamp,
         user=feedback.user.username 
     )
+
+def map_model_to_dto(model):
+    from DTO.model_DTO import ModelDTO
+
+    return ModelDTO(
+        id=model.id,
+        name=model.model_name,
+        accuracy=model.accuracy,
+        metric_value=model.metric_value,
+        watched_metric=model.watched_metric,
+        metric_values_history=model.metric_values_history,
+        used_opt_method=model.used_opt_method,
+        error=model.error,
+        dataset=model.dataset,
+    )
