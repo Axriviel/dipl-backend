@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from models.feedback import Feedback
 from models.user import User
 from models import db
+from DTO.mapper import map_feedback_to_dto
 
 feedback_bp = Blueprint('feedback_bp', __name__)
 
@@ -12,12 +13,7 @@ def return_feedback():
         data = Feedback.query.all()
                 # Serializace dat do seznamu slovníků
         feedback_list = [
-            {
-                'id': feedback.id,
-                'feedback': feedback.feedback,
-                'timestamp': feedback.timestamp,
-                'user': feedback.user.username  # Přístup k jménu uživatele přímo přes vztah
-            } 
+            map_feedback_to_dto(feedback).to_dict()
             for feedback in data
         ]
         

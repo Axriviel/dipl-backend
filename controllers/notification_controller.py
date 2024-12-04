@@ -3,6 +3,7 @@ from models import db
 from models.notification import Notification
 from config.settings import Config
 from controllers.user_controller import session
+from DTO.mapper import map_notification_to_dto
 
 
 notification_bp = Blueprint('notification_bp', __name__)
@@ -36,13 +37,7 @@ def get_notifications():
         
         # Serializace dat do seznamu slovníků
         notifications_list = [
-            {
-                'id': notification.id,
-                'message': notification.message,
-                'timestamp': notification.timestamp,
-                'was_read': notification.was_read,
-                'user': user_id  # nebo jiné relevantní údaje o uživateli
-            }
+            map_notification_to_dto(notification, user_id).to_dict() 
             for notification in notifications
         ]
         #print(notifications_list)
