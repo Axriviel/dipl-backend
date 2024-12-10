@@ -1,5 +1,6 @@
-from tensorflow.keras.layers import Input, Dense, Concatenate, Conv2D, Dropout, MaxPooling2D, LSTM
+from tensorflow.keras.layers import Input, Dense, Concatenate, Conv2D, Dropout, MaxPooling2D, LSTM, Flatten
 from tensorflow.keras.models import Model
+from tensorflow import keras
 import time
 import random
 from utils.dataset_storing import load_dataset
@@ -11,6 +12,24 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config):
     opt_method = settings["opt_algorithm"]
     
     x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
+#     (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
+    
+
+# # Converting the pixels data to float type
+#     x_train = x_train.astype('float32')
+#     y_train = y_train.astype('float32')
+ 
+# # Standardizing (255 is the total number of pixels an image can have)
+#     x_train = x_train / 255
+#     y_train = y_train / 255 
+
+# # One hot encoding the target class (labels)
+#     from tensorflow.keras.utils import to_categorical    
+#     num_classes = 10
+#     y_train = to_categorical(y_train, num_classes)
+#     y_test = to_categorical(y_test, num_classes)
+
+
     print("dataset processed")
 
     if opt_method == "random":
@@ -237,16 +256,25 @@ def process_layer_params_nni(layer, params):
 #process dataset based on config
 def process_dataset(dataset_path, dataset_config):
     try:
+        # Load the dataset
         dataset = load_dataset(dataset_path)
-        #x = dataset[x_columns] 
-        x = dataset.iloc[:,0:dataset_config["x_num"]] 
-        y = dataset.iloc[:,(dataset_config["y_num"]-1)]
-        #y = dataset[y_columns] 
-        # print(x)
-        # print(y)
-        return train_test_split(x, y, test_size = dataset_config["test_size"]) 
+        
+        # Determine processing logic based on file type
+        if dataset_path.endswith('.npz'):
+            x_train, y_train = dataset["x_train"], dataset["y_train"]
+            
+            #get values or none if not defined
+            x_val, y_val = dataset.get("x_val", None), dataset.get("y_val", None)
+            x_test, y_test = dataset.get("x_test", None), dataset.get("y_test", None)
+            return (x_train, x_val, x_test), (y_train, y_val, y_test)
+        
+        elif dataset_path.endswith('.csv'):
+            # Generic DataFrame-based processing (e.g., csv, tsv, etc.)
+            x = dataset.iloc[:, :dataset_config["x_num"]]
+            y = dataset.iloc[:, dataset_config["y_num"] - 1]
+            return train_test_split(x, y, test_size=dataset_config["test_size"])
     except Exception as e:
-        raise
+        raise 
 
 def generate_random_value(random_info):
     """Generate a random value based on the provided randomization info."""
@@ -364,7 +392,8 @@ def get_layer(layer, model=None):
     'generator': Generator,
     'dropout': Dropout,
     'maxpooling2d': MaxPooling2D,
-    'lstm': LSTM
+    'lstm': LSTM,
+    "flatten": Flatten
     # Můžeš přidat další vrstvy podle potřeby
     }
     

@@ -28,12 +28,14 @@ def load_dataset(path):
             dataset = pd.read_csv(path, delimiter='\t')
         elif path.endswith('.npy'):
             # NumPy pole převedeme na pandas DataFrame, každá hodnota bude v samostatném sloupci
-            np_data = np.load(path)
-            dataset = pd.DataFrame(np_data, columns=[f"Column_{i}" for i in range(np_data.shape[1])])
+            # np_data = np.load(path)
+            # dataset = pd.DataFrame(np_data, columns=[f"Column_{i}" for i in range(np_data.shape[1])])
+            dataset = np.load(path)
         elif path.endswith('.npz'):
-            # Pro NPZ soubory obsahující více polí můžeme načíst první pole nebo všechna pole
-            np_data = np.load(path)
-            dataset = pd.DataFrame({k: v for k, v in np_data.items()})
+            # Pro NPZ soubory obsahující více polí můžeme načíst první pole nebo všechna poleˇ
+            dataset = np.load(path)
+            # np_data = np.load(path)
+            # dataset = pd.DataFrame({k: v for k, v in np_data.items()})
         elif path.endswith('.h5'):
             dataset = pd.read_hdf(path)
         return dataset
