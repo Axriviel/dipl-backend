@@ -52,8 +52,8 @@ def initialize_population(layers, settings, population_size):
 
 # Fitness funkce pro hodnocení modelů
 def evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs=3, monitor_metric='val_accuracy'):
-    _, metric_value, _ = train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=num_runs, monitor_metric=monitor_metric)
-    return metric_value
+    _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=num_runs, monitor_metric=monitor_metric)
+    return metric_value, metric_history
 
 # Výběr nejlepších rodičů
 def select_parents(population, fitness_scores, num_parents, selection_method="Roulette"):
@@ -175,7 +175,19 @@ def genetic_optimization(
 ):
     # Inicializace populace
     population = initialize_population(layers, settings, population_size)
-    fitness_scores = [evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs, monitor_metric) for model, _ in population]
+    fitness_results = [
+        evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs, monitor_metric)
+        for model, _ in population
+    ]
+    fitness_scores = [metric_value for metric_value, _ in fitness_results]
+    fitness_histories = [best_history for _, best_history in fitness_results]
+
+    # Globální nejlepší model
+    global_best_score = max(fitness_scores)
+    global_best_index = fitness_scores.index(global_best_score)
+    global_best_model, global_best_params = population[global_best_index]
+    global_best_history = fitness_histories[global_best_index]
+
 
     for generation in range(num_generations):
         print(f"Generation {generation + 1}")
@@ -199,17 +211,33 @@ def genetic_optimization(
         
         # Aktualizace populace a fitness score
         population = new_population
-        fitness_scores = [evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs, monitor_metric) for model, _ in population]
-
+        fitness_results = [
+            evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs, monitor_metric)
+            for model, _ in population
+        ]
+        fitness_scores = [metric_value for metric_value, _ in fitness_results]
+        fitness_histories = [best_history for _, best_history in fitness_results]
         # Nejlepší model generace
-        best_model_index = fitness_scores.index(max(fitness_scores))
-        best_model, best_params = population[best_model_index]
-        print(f"Best model in generation {generation + 1}: {monitor_metric} = {fitness_scores[best_model_index]}")
+        generation_best_score = max(fitness_scores)
+        generation_best_index = fitness_scores.index(generation_best_score)
+        generation_best_model, generation_best_params = population[generation_best_index]
+        generation_best_history = fitness_histories[generation_best_index]
+
+        # Aktualizace globálního nejlepšího modelu
+        if generation_best_score > global_best_score:
+            global_best_score = generation_best_score
+            global_best_model = generation_best_model
+            global_best_params = generation_best_params
+            global_best_history = generation_best_history
+        
+        print(f"Best model in generation {generation + 1}: {monitor_metric} = {generation_best_score}")
+
 
     # Vrácení nejlepšího modelu a jeho parametrů
     best_model_index = fitness_scores.index(max(fitness_scores))
     best_model, best_params = population[best_model_index]
 
-    best_model_history = []
+    #best_model_history = []
 
-    return best_model, max(fitness_scores), best_model_history, best_params
+    #return best_model, max(fitness_scores), best_model_history, best_params
+    return global_best_model, global_best_score, global_best_history, global_best_params
