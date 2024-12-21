@@ -98,27 +98,77 @@ def select_parents(population, fitness_scores, num_parents, selection_method="Ro
 def crossover(parents = [], method="classic"):
     if not parents or len(parents) < 2:
         raise ValueError("You need at least 2 parents")
-    print(parents[0])
-    print(parents[1])
+    print("parent1,", parents[0])
+    print("parent2,",parents[1])
     child = []
     
     #classic 2 parent one point crossover
     if method=="classic":
-        l = 0
-        for i in parents[0]:
+        for l in range(len(parents[0])):
+            
+            #do generator crossover
+            if l == 2:
+                #generator to crossover - only matters in case of using multiple generators
+                g_t_c=0
+                #list of dictionaries for generator replication
+                c = gen_crossover(parents[0][2][g_t_c], parents[1][2][g_t_c])
+                child.append(c)
+                continue
+                
+            i = parents[0][l]
             break_point = random.randint(0, len(i))
             par1 = list(parents[0][l].items())[:break_point]
             par2 = list(parents[1][l].items())[break_point:]
-            child.append(dict(par1+par2))
-            l += 1
+            child.append(dict(par1 + par2))
+
     
     #possible more methods
     #vícebodové křížení, brát každý jeden parametr náhodně z náhodného rodiče ...
     #možnost křížení z více rodičů ...
     if method =="test":
         pass
-    print(child)
+    print("child je,",child)
+    
     return child
+
+def gen_crossover(par1, par2, method="onePoint"):
+    # p1_third a p2_third jsou listy o jednom prvku - např. par1[2], par2[2]
+    parent1 = par1
+    print("gen_crossover_par1", par1)
+    parent2 = par2
+    
+    up1 = parent1['used_parameters']
+    up2 = parent2['used_parameters']
+    ls1 = parent1['layers_sequence']
+    ls2 = parent2['layers_sequence']
+    
+    child_up = []
+    child_ls = []
+    
+    #creates one point from which the two parents split (if the point is more, than one parents length, the whole parent will
+    #be used and the other one will get connected on top of that)
+    if method=="onePoint":
+        max_length = max(len(ls1), len(ls2))
+        cp = random.randint(0, max_length - 1)
+        
+        child_up = up1[:cp] + up2[cp:]
+        child_ls = ls1[:cp] + ls2[cp:]
+        
+        
+    #TBA - method that does crossover based on layerId rather than fixed point
+    elif method=="layerId":
+        pass
+    
+    
+    #used_rules and used_layers should be the same, in case this proves wrong it could be edited to combine them
+    child = {
+        'used_parameters': child_up,
+        'layers_sequence': child_ls,
+        'used_rules': parent1['used_rules'],
+        'used_layers': parent1['used_layers']
+    }
+    
+    return [child]
 
 # Mutace parametrů modelu
 def mutate(params, layers, settings, mutation_rate=0.1, method="onePoint"):
