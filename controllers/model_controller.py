@@ -170,6 +170,10 @@ def make_model():
 #         return jsonify({"error": str(e)}), 500
     
 #create task make model
+
+
+#create model with full auto method
+#přidal jsem timeout na frontend - zahrnout limity
 @model_bp.route('/api/models/save-auto-model', methods=['POST'])
 def make_auto_model():
     #data = request.get_json()
