@@ -52,6 +52,7 @@ def check_active_task(user_id):
 
 from sklearn.model_selection import train_test_split
 
+# used for semi automatic model creation
 @model_bp.route('/api/save-model', methods=['POST'])
 def make_model():
     try:
@@ -195,17 +196,35 @@ def make_auto_model():
         active_tasks[user_id] = True
 
         dataset_path = save_dataset(file, user_id)
+
+
+
         # Přečteme taskType a optMethod z formulářových dat
+        layers = json.loads(request.form.get('layers', '[]'))
+        settings = json.loads(request.form.get('settings', '{}'))
+        dataset_config = json.loads(request.form.get('datasetConfig', '{}'))
+        max_models = request.form.get('maxModels')
+        timer = request.form.get('timeOut')
         task_type = request.form.get('taskType')
-        opt_method = request.form.get('optMethod')
+
+    
         print(f"Task Type: {task_type}")
-        print(f"Optimization Method: {opt_method}")
+        print(f"Optimization Method: {settings["opt_algorithm"]}")
+        print("layers auto", layers)
+        print("settings auto", settings)
+        print("dataset_config auto", dataset_config)
+        print("max_models auto", max_models)
+        print("timer auto", timer)
 
         #read dataset
         dataset = load_dataset(dataset_path)
         
         create_notification(for_user_id = user_id, message = "Creating started")
         model = create_auto_model(dataset, task_type, opt_method, user_id)
+        
+        # tohle bude možné použít pravděpodobně
+        #best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config)
+
         time.sleep(10)
         #přesunout do funkce -> save_and_notification
         # new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
