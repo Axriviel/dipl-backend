@@ -251,6 +251,13 @@ def genetic_optimization(
             parent1, parent2 = random.sample(parents, 2)
             print("prent1", parent1)
             print("prent1", parent1[1])
+            
+            #there is literaly no point in using genetic optimization with no hyperparameters or generator, but in case that happens ...
+            if len(parent1[1][0])+len(parent1[1][1])+len(parent1[1][2])==0:
+                        while len(new_population) < population_size:
+                            model, params = create_functional_model(layers, settings)
+                            new_population.append((model, params))
+                        break
             child_params = crossover([parent1[1], parent2[1]])
             print("child params1", child_params)
             child_params = mutate(child_params, layers, settings, mutation_rate)
