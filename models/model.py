@@ -12,6 +12,8 @@ class Model(db.Model):
     creation_config = db.Column(JSON, nullable=True) #config used to create the model
     used_params = db.Column(JSON, nullable=True)  # used params
     used_opt_method = db.Column(db.String(100), nullable=False)
+    used_task = db.Column(db.String(100), nullable=True)
+    used_tags = db.Column(JSON, nullable=True)
     
     error = db.Column(db.Float, nullable=False)
     dataset = db.Column(db.String(100), nullable=False)
