@@ -206,6 +206,8 @@ def make_auto_model():
         max_models = request.form.get('maxModels')
         timer = request.form.get('timeOut')
         task_type = request.form.get('taskType')
+        tags = request.form.get("tags")
+        print("tasg:", tags)
 
     
         print(f"Task Type: {task_type}")
@@ -216,16 +218,24 @@ def make_auto_model():
         print("max_models auto", max_models)
         print("timer auto", timer)
 
+        additional_data = {"task_type": task_type, "tags": tags }
+        print(additional_data, "jsou další data")
         #read dataset
-        dataset = load_dataset(dataset_path)
+        # dataset = load_dataset(dataset_path)
         
         create_notification(for_user_id = user_id, message = "Creating started")
-        model = create_auto_model(dataset, task_type, opt_method, user_id)
+        #model = create_auto_model(dataset, task_type, opt_method, user_id)
+
+        best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data=additional_data)
+
+        # Uložení modelu a notifikace
+        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params, used_opt_method=settings["opt_algorithm"], used_task = task_type, used_tags = tags)
+        
+
         
         # tohle bude možné použít pravděpodobně
         #best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config)
 
-        time.sleep(10)
         #přesunout do funkce -> save_and_notification
         # new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, error = 0.07, dataset = dataset, user_id = user_id)
         # db.session.add(new_model)
@@ -233,7 +243,7 @@ def make_auto_model():
         # model_id = new_model.id
         # save_model(model, user_id, model_id)
         # create_notification(for_user_id = user_id, message = "Model creating")
-        save_and_notification(model, user_id, dataset_name)
+        #save_and_notification(model, user_id, dataset_name)
         #save_model(model, "userModels/" + "model.keras")
         #loaded_model = load_model("userModels/" + "model.keras")
         #loaded_model.summary()
@@ -376,9 +386,9 @@ def get_column_names():
     
 
 #save model and create notification
-def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], used_opt_method="undefined"):
+def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], used_opt_method="undefined", used_task = "", used_tags = {}):
         try:
-            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, error = 0.07, dataset = dataset, user_id = user_id)
+            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, error = 0.07, dataset = dataset, user_id = user_id, used_task=used_task, used_tags=used_tags)
             db.session.add(new_model)
             db.session.commit()
             model_id = new_model.id

@@ -7,7 +7,7 @@ from utils.dataset_storing import load_dataset
 from sklearn.model_selection import train_test_split
 #creates optimized model based on selected algorithm
 #returns  best model, best metric value, best metric history, best used parameters
-def create_optimized_model(layers, settings, dataset_path, dataset_config):
+def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data={}):
     
     opt_method = settings["opt_algorithm"]
     
@@ -177,7 +177,31 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config):
         #not supported yet
         b_metric_history = []
     
-    return b_model, b_metric_val, b_metric_history, used_params
+        return b_model, b_metric_val, b_metric_history, used_params
+
+    elif opt_method == "tagging":
+        try:
+            from optimizers.tagging_optimizer import tagging_optimization
+            print("jsem uvnitř taggin essentials")
+            b_model, b_metric_val, b_metric_history, used_params = tagging_optimization(
+                layers, 
+                settings, 
+                x_train=x_train, 
+                y_train=y_train, 
+                x_test=x_test, 
+                y_test=y_test,
+                num_of_models=5, 
+                num_runs=3, 
+                threshold=0.7, 
+                opt_data=opt_data
+            )
+            pass
+        except Exception as e:
+            print("TAGGING essentials exception: ", e)
+            raise
+
+        return b_model, b_metric_val, b_metric_history, used_params
+
 
 #used for nni to find best trial in the list (since there is no method for that)
 def get_best_trial(exp_data, optimize_mode="maximize"):
