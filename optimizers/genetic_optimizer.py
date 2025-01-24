@@ -108,17 +108,24 @@ def crossover(parents = [], method="classic"):
             
             #do generator crossover
             if l == 2:
+                if len(parents[0][2]) == 0:
+                    # print("skipuju gen")
+                    child.append([])
+                    continue
+                # print("jdu na gen_c")
                 #generator to crossover - only matters in case of using multiple generators
                 g_t_c=0
                 #list of dictionaries for generator replication
                 c = gen_crossover(parents[0][2][g_t_c], parents[1][2][g_t_c])
                 child.append(c)
                 continue
-                
             i = parents[0][l]
             break_point = random.randint(0, len(i))
+            # print(break_point)
             par1 = list(parents[0][l].items())[:break_point]
+            # print(par1)
             par2 = list(parents[1][l].items())[break_point:]
+            # print(par2)
             child.append(dict(par1 + par2))
 
     
@@ -258,6 +265,7 @@ def genetic_optimization(
                             model, params = create_functional_model(layers, settings)
                             new_population.append((model, params))
                         break
+            print("jdeme na crossover")
             child_params = crossover([parent1[1], parent2[1]])
             print("child params1", child_params)
             child_params = mutate(child_params, layers, settings, mutation_rate)
