@@ -5,12 +5,13 @@ from .essentials import create_functional_model
 # Funkce pro více tréninků jednoho modelu
 def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32):
     early_stopping = EarlyStopping(monitor=monitor_metric, patience=5, min_delta=0.01, mode='max', restore_best_weights=True)
-    epoch_history = []
+    best_epoch_history = []
     best_metric_value = 0
     best_weights = None  # Uchová váhy modelu s nejlepší finální hodnotou metriky
 
     for i in range(num_runs):
         try:
+            epoch_history = []
             print(f"Training run {i+1}")
             history = model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
 
@@ -25,6 +26,7 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, thre
             if final_metric_value > best_metric_value:
                 best_metric_value = final_metric_value
                 best_weights = model.get_weights()  # Uložení vah nejlepšího modelu
+                best_epoch_history = epoch_history
 
             # Pokud finální metrika tréninku nedosáhla prahu threshold, ukončíme další trénování
             if final_metric_value < threshold:
@@ -38,7 +40,7 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, thre
         model.set_weights(best_weights)
 
     # Vrátíme natrénovaný model s váhami nejlepší finální metriky, finální hodnotu metriky a historii metrik
-    return model, best_metric_value, epoch_history
+    return model, best_metric_value, best_epoch_history
 
 # Random search pro náhodné modely
 def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5, num_runs=3, threshold=0.7, monitor_metric='val_accuracy'):
