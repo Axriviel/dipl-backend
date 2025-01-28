@@ -10,8 +10,9 @@ from sklearn.model_selection import train_test_split
 def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data={}):
     
     opt_method = settings["opt_algorithm"]
-    
+    print("processing dataset")
     x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
+    print(x_train)
 #     (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
     
 
@@ -39,8 +40,8 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
         b_model, b_metric_val, b_metric_history, used_params = random_search(layers, settings, 
                                                   x_train=x_train, y_train=y_train, 
                                                   x_val=x_test, y_val=y_test, 
-                                                  num_models=5, num_runs=3, 
-                                                  threshold=0.7, 
+                                                  num_models=settings["max_models"], num_runs=3, 
+                                                  threshold=settings["es_threshold"], 
 #                                                   monitor_metric='val_loss')
                                                   monitor_metric=settings["monitor_metric"])
         
@@ -192,7 +193,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                 y_test=y_test,
                 num_of_models=5, 
                 num_runs=3, 
-                threshold=0.7, 
+                threshold=settings["es_threshold"], 
                 opt_data=opt_data
             )
             pass
@@ -282,15 +283,17 @@ def process_dataset(dataset_path, dataset_config):
     try:
         # Load the dataset
         dataset = load_dataset(dataset_path)
+        # print(dataset)
         
         # Determine processing logic based on file type
         if dataset_path.endswith('.npz'):
             x_train, y_train = dataset["x_train"], dataset["y_train"]
             
             #get values or none if not defined
-            x_val, y_val = dataset.get("x_val", None), dataset.get("y_val", None)
+            # x_val, y_val = dataset.get("x_val", None), dataset.get("y_val", None)
             x_test, y_test = dataset.get("x_test", None), dataset.get("y_test", None)
-            return (x_train, x_val, x_test), (y_train, y_val, y_test)
+            #return (x_train, x_val, x_test), (y_train, y_val, y_test)
+            return x_train, x_test, y_train, y_test
         
         elif dataset_path.endswith('.csv'):
             # Generic DataFrame-based processing (e.g., csv, tsv, etc.)

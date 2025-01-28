@@ -13,7 +13,7 @@ class Config:
 
     DATASET_FOLDER = 'datasets'
     #extensions that are acceptable from frontend file upload
-    ALLOWED_EXTENSIONS = {'csv', 'jpg', 'jpeg', 'png', 'tfrecord', 'h5', 'json'}
+    ALLOWED_EXTENSIONS = {'csv', "npz", 'jpg', 'jpeg', 'png', 'tfrecord', 'h5', 'json'}
     #parameters, that require conversion to integer becouse microsoft NNI returns all the values as float
     KERAS_INT_PARAMS = ['units', 'filters', 'kernel_size', 'strides', 'pool_size'] 
 
