@@ -4,5 +4,6 @@ instance/
 userModels/*
 datasets/*
 !datasets/default/
+datasets/default/cifar10_normalized.npz
 nni_trials/*
 !nni_trials/trial.py
