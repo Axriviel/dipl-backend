@@ -9,6 +9,7 @@ from controllers.user_controller import session
 from models.model import Model, db
 from utils.dataset_storing import save_dataset, load_dataset
 from optimizers.essentials import create_optimized_model
+from config.settings import Config
 import random
 import os
 import time
@@ -188,15 +189,15 @@ def make_auto_model():
         if user_id in active_tasks:
             return jsonify({"error": "Task already running. Please wait until it finishes."}), 400
 
-        if 'datasetFile' not in request.files:
-            return jsonify({"error": "No file part"}), 400
-        file = request.files['datasetFile']
-        dataset_name = file.filename
+        dataset_name = request.form.get("datasetFile")
+        print(dataset_name)
+        if not dataset_name:
+            return jsonify({"error": "No dataset name provided"}), 400
+        # file = request.files['datasetFile']
 
         active_tasks[user_id] = True
 
-        dataset_path = save_dataset(file, user_id)
-
+        # dataset_path = save_dataset(file, user_id)
 
 
         # Přečteme taskType a optMethod z formulářových dat
@@ -206,8 +207,10 @@ def make_auto_model():
         max_models = request.form.get('maxModels')
         timer = request.form.get('timeOut')
         task_type = request.form.get('taskType')
+        use_default_dataset = request.form.get('useDefaultDataset')
         tags = request.form.get("tags")
         print("tasg:", tags)
+        print("default dataset:", use_default_dataset)
 
     
         print(f"Task Type: {task_type}")
@@ -221,7 +224,20 @@ def make_auto_model():
         additional_data = {"task_type": task_type, "tags": tags }
         print(additional_data, "jsou další data")
         #read dataset
+
+
+        if use_default_dataset == "true":
+            dataset_path = os.path.join(Config.DEFAULT_DATASET_FOLDER, dataset_name)
+        else:
+            dataset_path = os.path.join(Config.DATASET_FOLDER, str(user_id), dataset_name)
+
+        if not os.path.exists(dataset_path):
+            return jsonify({"error": "Dataset not found"}), 400
+
         # dataset = load_dataset(dataset_path)
+
+
+        
         
         create_notification(for_user_id = user_id, message = "Creating started")
         #model = create_auto_model(dataset, task_type, opt_method, user_id)

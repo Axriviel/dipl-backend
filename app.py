@@ -23,6 +23,7 @@ from controllers.model_controller import model_bp
 from controllers.user_controller import user_bp
 from controllers.FeedbackController import feedback_bp
 from controllers.notification_controller import notification_bp
+from controllers.dataset_controller import dataset_bp
 
 
 app = Flask(__name__)
@@ -45,6 +46,7 @@ app.register_blueprint(user_bp)
 app.register_blueprint(model_bp)
 app.register_blueprint(feedback_bp)
 app.register_blueprint(notification_bp)
+app.register_blueprint(dataset_bp)
 
 
 @app.route("/", methods=["GET"])
