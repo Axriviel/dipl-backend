@@ -61,16 +61,25 @@ def make_model():
         if not user_id:
             return jsonify({"error": "User not authenticated"}), 401
 
-        # Kontrola, zda soubor byl nahrán
-        if 'datasetFile' not in request.files:
-            return jsonify({"error": "No dataset file"}), 400
-
         if not check_active_task(user_id):
             return jsonify({"error": "Task already running. Please wait until it finishes."}), 400
 
-        file = request.files['datasetFile']
-        dataset_name = file.filename
-        dataset_path = save_dataset(file, user_id)
+
+        dataset_name = request.form.get("datasetFile")
+        use_default_dataset = request.form.get('useDefaultDataset')
+
+
+        print(dataset_name)
+        if not dataset_name:
+            return jsonify({"error": "No dataset name provided"}), 400
+        
+        if use_default_dataset == "true":
+            dataset_path = os.path.join(Config.DEFAULT_DATASET_FOLDER, dataset_name)
+        else:
+            dataset_path = os.path.join(Config.DATASET_FOLDER, str(user_id), dataset_name)
+
+        if not os.path.exists(dataset_path):
+            return jsonify({"error": "Dataset not found"}), 400
 
         # load layers, settings and dataset_settings from form
         layers = json.loads(request.form.get('layers', '[]'))
