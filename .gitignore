@@ -3,5 +3,6 @@ __pycache__/
 instance/
 userModels/*
 datasets/*
+!datasets/default/
 nni_trials/*
 !nni_trials/trial.py
