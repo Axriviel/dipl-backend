@@ -27,9 +27,8 @@ from controllers.dataset_controller import dataset_bp
 
 
 app = Flask(__name__)
-#CORS(app, supports_credentials=True)  # Allow cors
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
 app.config.from_object(Config)
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["https://kerasage.axriviel.eu", "http://localhost:5173"]}})
 
 db.init_app(app)
 bcrypt = Bcrypt(app)
