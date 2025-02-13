@@ -489,6 +489,7 @@ def create_functional_model(layers, settings, params = None):
 
     unresolved_layers = processed_layers.copy()  # Seznam vrstev, které je třeba ještě zpracovat
 
+    print("used params before",  used_layers_params, used_settings_params)
 
     # Prvotní zpracování vstupních vrstev
     while unresolved_layers:
@@ -512,7 +513,13 @@ def create_functional_model(layers, settings, params = None):
                 if layer["type"] == "Generator":
                     #generator return whole model, so we need to treat it as such
                     #return model at [0] and replicable process at [1]
-                    gen_output = get_layer(layer, input_tensor, optional_param=generator_settings[generator_number])
+                    print(generator_settings)
+                    
+                    if len(generator_settings)<generator_number+1:
+                        gen_output = get_layer(layer, input_tensor)
+                    else:
+                        gen_output = get_layer(layer, input_tensor, optional_param=generator_settings[generator_number])
+
                     generator_number += 1
                     gen_used_config = gen_output[1]
                     #save the particular generator info into list in order

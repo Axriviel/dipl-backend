@@ -88,6 +88,7 @@ def make_model():
         
         nni_config = settings["NNI"]
         print(nni_config)
+        print("model name:", settings["model_name"])
         
         print(dataset_config)
 
@@ -106,7 +107,7 @@ def make_model():
         best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config)
 
         # Uložení modelu a notifikace
-        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params, used_opt_method=settings["opt_algorithm"])
+        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params,model_name = settings["model_name"], used_opt_method=settings["opt_algorithm"])
         
         active_tasks.pop(user_id, None)
 
@@ -254,7 +255,7 @@ def make_auto_model():
         best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data=additional_data)
 
         # Uložení modelu a notifikace
-        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params, used_opt_method=settings["opt_algorithm"], used_task = task_type, used_tags = tags)
+        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params, model_name = settings["model_name"], used_opt_method=settings["opt_algorithm"], used_task = task_type, used_tags = tags)
         
 
         
@@ -411,9 +412,12 @@ def get_column_names():
     
 
 #save model and create notification
-def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], used_opt_method="undefined", used_task = "", used_tags = {}):
+def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "myModel", used_opt_method="undefined", used_task = "", used_tags = {}):
         try:
-            new_model = Model(model_name = "model_"+ str(round(random.random(), 3)), accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, error = 0.07, dataset = dataset, user_id = user_id, used_task=used_task, used_tags=used_tags)
+            if model_name == "myModel":
+                model_name = "model_"+ str(round(random.random(), 3))
+
+            new_model = Model(model_name = model_name, accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, error = 0.07, dataset = dataset, user_id = user_id, used_task=used_task, used_tags=used_tags)
             db.session.add(new_model)
             db.session.commit()
             model_id = new_model.id
