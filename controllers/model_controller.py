@@ -396,20 +396,6 @@ def delete_model(model_id):
         db.session.rollback()  # Vrácení změn v případě chyby
         return jsonify({"error": str(e)}), 500
     
-@model_bp.route('/api/get_column_names', methods=['POST'])
-def get_column_names():
-    file = request.files['file']
-    user_id = session.get('user_id')  # Doplníme user_id nebo jiný identifikátor
-
-    # Uložení souboru na server
-    file_path = save_dataset(file, user_id)  # Uloží soubor a vrátí cestu k souboru
-    
-    # Načtení názvů sloupců pomocí funkce `load_dataset`
-    dataset = load_dataset(file_path)
-    column_names = dataset.columns.tolist()
-    
-    return jsonify(column_names)
-    
 
 #save model and create notification
 def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "myModel", used_opt_method="undefined", used_task = "", used_tags = {}):
