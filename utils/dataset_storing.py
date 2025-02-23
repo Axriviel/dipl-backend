@@ -40,7 +40,7 @@ def load_dataset(path):
             dataset = pd.read_hdf(path)
         return dataset
     except Exception as e:
-        print("Error in loading dataset" + e)
+        print("Error in loading dataset", e)
         raise
 
 # def load_tfrecord(path):
