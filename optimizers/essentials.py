@@ -297,8 +297,14 @@ def process_dataset(dataset_path, dataset_config):
         
         elif dataset_path.endswith('.csv'):
             # Generic DataFrame-based processing (e.g., csv, tsv, etc.)
-            x = dataset.iloc[:, :dataset_config["x_num"]]
-            y = dataset.iloc[:, dataset_config["y_num"] - 1]
+            if dataset_config.get("x_columns"):
+                x = dataset[dataset_config["x_columns"]]  # Vybere konkrétní sloupce
+            else:
+                x = dataset.iloc[:, :dataset_config["x_num"]]
+            if dataset_config.get("y_columns"):
+                y = dataset[dataset_config["y_columns"]]
+            else:
+                y = dataset.iloc[:, dataset_config["y_num"] - 1]
             return train_test_split(x, y, test_size=dataset_config["test_size"])
     except Exception as e:
         raise 
