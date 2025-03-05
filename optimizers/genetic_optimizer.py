@@ -1,6 +1,8 @@
 import numpy as np
 from tensorflow.keras.callbacks import EarlyStopping
+from utils.task_progress_manager import progress_manager
 from .essentials import create_functional_model, process_parameters
+from flask import session
 
 # Funkce pro více tréninků jednoho modelu
 def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy'):
@@ -247,6 +249,7 @@ def genetic_optimization(
     global_best_model, global_best_params = population[global_best_index]
     global_best_history = fitness_histories[global_best_index]
 
+    user_id = session.get("user_id")
 
     for generation in range(num_generations):
         print(f"Generation {generation + 1}")
@@ -296,6 +299,9 @@ def genetic_optimization(
             global_best_model = generation_best_model
             global_best_params = generation_best_params
             global_best_history = generation_best_history
+
+        progress = ((generation + 1) / num_generations) * 100  # Progress jako % dokončení
+        progress_manager.update_progress(user_id, progress)
         
         print(f"Best model in generation {generation + 1}: {monitor_metric} = {generation_best_score}")
 

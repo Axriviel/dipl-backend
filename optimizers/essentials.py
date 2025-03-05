@@ -8,10 +8,16 @@ from sklearn.model_selection import train_test_split
 #creates optimized model based on selected algorithm
 #returns  best model, best metric value, best metric history, best used parameters
 def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data={}):
+    print("settings:", layers)
     
     opt_method = settings["opt_algorithm"]
     print("processing dataset")
-    x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
+    input_shape, x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
+    print("shape", input_shape)
+    # set input shape into input layer
+    layers[0]["shape"] = input_shape
+    print("updated input:", layers[0]["shape"])
+
     print(x_train)
 #     (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
     
@@ -288,24 +294,27 @@ def process_dataset(dataset_path, dataset_config):
         # Determine processing logic based on file type
         if dataset_path.endswith('.npz'):
             x_train, y_train = dataset["x_train"], dataset["y_train"]
+            input_shape = list(x_train.shape[1:])
             
             #get values or none if not defined
             # x_val, y_val = dataset.get("x_val", None), dataset.get("y_val", None)
             x_test, y_test = dataset.get("x_test", None), dataset.get("y_test", None)
             #return (x_train, x_val, x_test), (y_train, y_val, y_test)
-            return x_train, x_test, y_train, y_test
+            return input_shape, x_train, x_test, y_train, y_test
         
         elif dataset_path.endswith('.csv'):
             # Generic DataFrame-based processing (e.g., csv, tsv, etc.)
             if dataset_config.get("x_columns"):
                 x = dataset[dataset_config["x_columns"]]  # Vybere konkrétní sloupce
+                input_shape = [len(dataset_config["x_columns"])]
             else:
                 x = dataset.iloc[:, :dataset_config["x_num"]]
+                input_shape = [dataset_config["x_num"]]
             if dataset_config.get("y_columns"):
                 y = dataset[dataset_config["y_columns"]]
             else:
                 y = dataset.iloc[:, dataset_config["y_num"] - 1]
-            return train_test_split(x, y, test_size=dataset_config["test_size"])
+            return input_shape, *train_test_split(x, y, test_size=dataset_config["test_size"])
     except Exception as e:
         raise 
 

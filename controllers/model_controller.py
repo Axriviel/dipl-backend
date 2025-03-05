@@ -8,6 +8,7 @@ from controllers.notification_controller import create_notification
 from controllers.user_controller import session
 from models.model import Model, db
 from utils.dataset_storing import save_dataset, load_dataset
+from utils.task_progress_manager import progress_manager
 from optimizers.essentials import create_optimized_model
 from config.settings import Config
 import random
@@ -20,7 +21,6 @@ model_bp = Blueprint('model_bp', __name__)
 
 
 active_tasks = {}
-
 # def create_model(layers, dataset):
 #     model = Sequential()
 #     for layer in layers:
@@ -41,7 +41,6 @@ def check_active_task(user_id):
     else:
         active_tasks[user_id] = True
         return True
-
 
 # def create_auto_model(dataset, task, opt_method, user_id ):
 #     model = Sequential()
@@ -103,7 +102,7 @@ def make_model():
 
         # Vytvoření modelu
         create_notification(for_user_id=user_id, message="Creating started")
-
+        progress_manager.update_progress(user_id, 0)
         best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config)
 
         # Uložení modelu a notifikace
@@ -115,7 +114,7 @@ def make_model():
     
     except Exception as e:
         active_tasks.pop(user_id, None)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Error creating model " +str(e)}), 500
 
 
 # #create task make model
@@ -251,7 +250,7 @@ def make_auto_model():
         
         create_notification(for_user_id = user_id, message = "Creating started")
         #model = create_auto_model(dataset, task_type, opt_method, user_id)
-
+        progress_manager.update_progress(user_id, 0)
         best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data=additional_data)
 
         # Uložení modelu a notifikace
@@ -278,7 +277,7 @@ def make_auto_model():
         return jsonify({"message": "Model successfully created and saved!"}), 200
     except Exception as e:
         active_tasks.pop(user_id, None)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Error creating model " + str(e)}), 500
     
 
 #get all models
@@ -396,6 +395,23 @@ def delete_model(model_id):
         db.session.rollback()  # Vrácení změn v případě chyby
         return jsonify({"error": str(e)}), 500
     
+@model_bp.route('/api/task-progress', methods=['GET'])
+def get_task_progress():
+    """ Vrátí stav progress baru a stav úlohy pro přihlášeného uživatele """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "User not authenticated"}), 401
+
+    progress = progress_manager.get_progress(user_id)
+    
+    # Zkontrolujeme, zda úloha stále běží
+    is_running = user_id in active_tasks  # Pokud je ve `active_tasks`, znamená to, že běží
+
+    return jsonify({
+        "progress": progress if progress is not None else 0,
+        "isRunning": is_running
+    })
+
 
 #save model and create notification
 def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "myModel", used_opt_method="undefined", used_task = "", used_tags = {}):

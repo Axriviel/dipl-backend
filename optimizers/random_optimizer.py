@@ -1,6 +1,8 @@
 import numpy as np
 from tensorflow.keras.callbacks import EarlyStopping
+from utils.task_progress_manager import progress_manager
 from .essentials import create_functional_model
+from flask import session
 
 # Funkce pro více tréninků jednoho modelu
 def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32):
@@ -48,6 +50,7 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
     best_metric_value = 0
     best_metric_history = []
     best_model_params = []
+    user_id = session.get("user_id")
 
     for i in range(num_models):
         print(f"Training model {i+1}")
@@ -65,6 +68,9 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
             best_model = trained_model  # Uložíme natrénovaný model s nejlepší finální metrikou
             best_metric_history = metric_history  # Uložíme historii metrik nejlepšího modelu
             best_model_params = used_params #save best params
+    
+        progress = ((i + 1) / num_models) * 100  # Progress jako % dokončení
+        progress_manager.update_progress(user_id, progress)
 
     print(f"Best model achieved {monitor_metric}: {best_metric_value}")
     return best_model, best_metric_value, best_metric_history, best_model_params

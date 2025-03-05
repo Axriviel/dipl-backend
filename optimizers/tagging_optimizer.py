@@ -1,6 +1,8 @@
 from models.model import Model
 from tensorflow.keras.callbacks import EarlyStopping
 from .essentials import create_functional_model
+from flask import session
+from utils.task_progress_manager import progress_manager
 
 
 #counts match score between required tags (user defined task) and target tags (models in database)
@@ -88,12 +90,14 @@ def tagging_optimization(layers,
     potential_models = find_candidates(opt_data["tags"], opt_data["task_type"])
     print("potential_models-tagging", potential_models)
 
+    user_id = session.get("user_id")
+    progress_manager.update_progress(user_id, 0)
 
     found_models = []
 
     #tba - retrain potential models and evaluate
     if len(potential_models) != 0:
-        for m in potential_models:
+        for index, m in enumerate(potential_models):
         #načíst model (načíst config z databáze a ten použít, v něm nahradit výstupní vrstvu a vstupní dimenzi v inputu)
         #možná načíst váhy z existujícího modelu a ty do toho nového nahrát?
             # print(m, "potential model")
@@ -118,7 +122,8 @@ def tagging_optimization(layers,
             
             found_models.append([trained_model, metric_value, metric_history, used_params])
         print("Celkem nalezeno: ", len(found_models), "modelů")
-            
+
+    progress_manager.update_progress(user_id, 50)            
 
     # print("nyní budeme generovat")
     #pokud je modelů málo, nebo stejně chceme vytvořit několik vlastních ...
@@ -137,12 +142,15 @@ def tagging_optimization(layers,
     sorted_models = sorted(found_models, key=lambda x: x[1], reverse=True)
     print("sorted_models: ",sorted_models)
     
+    
+    progress_manager.update_progress(user_id, 100)
     b_model = sorted_models[0]
     print(b_model)
     best_model = b_model[0]
     best_metric_value = b_model[1]
     best_metric_history = b_model[2]
     best_model_params = b_model[3]
+    # progress_manager.update_progress(user_id, 100)
     return best_model, best_metric_value, best_metric_history, best_model_params
 
 
