@@ -1,4 +1,4 @@
-from tensorflow.keras.layers import Input, Dense, Concatenate, Conv2D, Dropout, MaxPooling2D, LSTM, Flatten
+from tensorflow.keras.layers import Input, Dense, Concatenate, Conv2D, Dropout, MaxPooling2D, LSTM, Flatten, BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow import keras
 import time
@@ -40,17 +40,21 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
     print("dataset processed")
 
     if opt_method == "random":
-        from optimizers.random_optimizer import random_search
-
-        # Spuštění random search, můžeme zvolit například sledování metriky val_loss
-        b_model, b_metric_val, b_metric_history, used_params = random_search(layers, settings, 
-                                                  x_train=x_train, y_train=y_train, 
-                                                  x_val=x_test, y_val=y_test, 
-                                                  num_models=settings["max_models"], num_runs=3, 
-                                                  threshold=settings["es_threshold"], 
-#                                                   monitor_metric='val_loss')
-                                                  monitor_metric=settings["monitor_metric"])
-        
+        try:
+            from optimizers.random_optimizer import random_search
+    
+            # Spuštění random search, můžeme zvolit například sledování metriky val_loss
+            b_model, b_metric_val, b_metric_history, used_params = random_search(layers, settings, 
+                                                      x_train=x_train, y_train=y_train, 
+                                                      x_val=x_test, y_val=y_test, 
+                                                      num_models=settings["max_models"], num_runs=3, 
+                                                      threshold=settings["es_threshold"], 
+#                                                       monitor_metric='val_loss')
+                                                      monitor_metric=settings["monitor_metric"])
+            
+        except Exception as e:
+            print("GA essentials exception: ", e)
+            raise
         print(f"Best model found with {settings['monitor_metric']} : {b_metric_val}")
         b_model.summary()
         return b_model, b_metric_val, b_metric_history, used_params
@@ -435,7 +439,8 @@ def get_layer(layer, model=None, optional_param=None):
     'dropout': Dropout,
     'maxpooling2d': MaxPooling2D,
     'lstm': LSTM,
-    "flatten": Flatten
+    "flatten": Flatten,
+    "batchnormalization": BatchNormalization
     # Můžeš přidat další vrstvy podle potřeby
     }
     
