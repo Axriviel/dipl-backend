@@ -145,6 +145,7 @@ def get_column_names():
     """Vrátí seznam názvů sloupců datasetu"""
     data = request.get_json()
     dataset_name = data.get("dataset_name")    
+    is_default_dataset = data.get("is_default_dataset")    
     user_id = session.get('user_id')
 
     if not dataset_name:
@@ -152,8 +153,9 @@ def get_column_names():
 
     if not user_id:
         return jsonify({"error": "User not authenticated"}), 401
-
-    dataset_path = get_dataset_path(user_id, dataset_name)
+    print(is_default_dataset)
+    dataset_path = get_dataset_path(user_id, dataset_name, is_default_dataset)
+    print(dataset_path)
     if not dataset_path:
         return jsonify({"error": "Dataset not found"}), 404
 
@@ -166,7 +168,10 @@ def get_column_names():
     return jsonify({"columns": dataset_info["column_names"]}), 200
 
 
-def get_dataset_path(user_id, dataset_name):
+def get_dataset_path(user_id, dataset_name, is_default_dataset = False):
+    if(is_default_dataset):
+        return os.path.join(Config.DATASET_FOLDER, "default", dataset_name)
+
     """Vrátí cestu k datasetu uživatele"""
     user_folder = os.path.join(Config.DATASET_FOLDER, str(user_id))
     dataset_path = os.path.join(user_folder, dataset_name)

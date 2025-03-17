@@ -381,7 +381,9 @@ def delete_model(model_id):
 
         # Ověření, zda soubor existuje
         if not os.path.exists(model_path):
-            return jsonify({"error": "Model not found"}), 404
+            db.session.delete(model)
+            db.session.commit()
+            return jsonify({"error": "Model not found"}), 409
 
 
         # Smazání záznamu z databáze

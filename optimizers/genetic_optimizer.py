@@ -5,7 +5,7 @@ from .essentials import create_functional_model, process_parameters
 from flask import session
 
 # Funkce pro více tréninků jednoho modelu
-def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy'):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='val_accuracy'):
     early_stopping = EarlyStopping(monitor=monitor_metric, patience=5, min_delta=0.01, mode='max', restore_best_weights=True)
     best_epoch_history = []
     best_metric_value = 0
@@ -55,8 +55,8 @@ def initialize_population(layers, settings, population_size):
     return population
 
 # Fitness funkce pro hodnocení modelů
-def evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs=3, monitor_metric='val_accuracy'):
-    _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=num_runs, monitor_metric=monitor_metric)
+def evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='val_accuracy',  ):
+    _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=num_runs, monitor_metric=monitor_metric)
     return metric_value, metric_history
 
 # Výběr nejlepších rodičů
@@ -232,12 +232,13 @@ def genetic_optimization(
     mutation_rate=0.1, 
     num_runs=3, 
     monitor_metric='val_accuracy',
-    selection_method="Roulette"  # Metoda výběru rodičů
+    selection_method="Roulette",  # Metoda výběru rodičů
+    threshold=0.7, 
 ):
     # Inicializace populace
     population = initialize_population(layers, settings, population_size)
     fitness_results = [
-        evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs, monitor_metric)
+        evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric)
         for model, _ in population
     ]
     fitness_scores = [metric_value for metric_value, _ in fitness_results]
@@ -282,7 +283,7 @@ def genetic_optimization(
         # Aktualizace populace a fitness score
         population = new_population
         fitness_results = [
-            evaluate_fitness(model, x_train, y_train, x_val, y_val, num_runs, monitor_metric)
+            evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric)
             for model, _ in population
         ]
         fitness_scores = [metric_value for metric_value, _ in fitness_results]
