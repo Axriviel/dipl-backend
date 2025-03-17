@@ -5,6 +5,8 @@ import time
 import random
 from utils.dataset_storing import load_dataset
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+
 #creates optimized model based on selected algorithm
 #returns  best model, best metric value, best metric history, best used parameters
 def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data={}):
@@ -56,7 +58,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
             print("GA essentials exception: ", e)
             raise
         print(f"Best model found with {settings['monitor_metric']} : {b_metric_val}")
-        b_model.summary()
+        # b_model.summary()
         return b_model, b_metric_val, b_metric_history, used_params
 
     elif opt_method == "genetic":
@@ -76,7 +78,8 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                 num_generations=ga_config["generations"], 
                 num_parents=ga_config["numParents"], 
                 mutation_rate=ga_config["mutationRate"], 
-                selection_method=ga_config["selectionMethod"]
+                selection_method=ga_config["selectionMethod"],
+                threshold=settings["es_threshold"], 
             )
         except Exception as e:
             print("GA essentials exception: ", e)
@@ -84,7 +87,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
         
         print(b_metric_val)
         print(used_params)
-        b_model.summary()
+        # b_model.summary()
         
         return b_model, b_metric_val, b_metric_history, used_params
 
@@ -175,7 +178,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
             b_model.fit(x_train, y_train, epochs=10, validation_data=(x_test, y_test))
 
             print(used_params)
-            print(b_model.summary())
+            # print(b_model.summary())
 # 
             # return best_model, best_trial['value'], None
         except Exception as e:
@@ -289,25 +292,58 @@ def process_layer_params_nni(layer, params):
 
 
 #process dataset based on config
+# def process_dataset(dataset_path, dataset_config):
+#     try:
+#         # Load the dataset
+#         dataset = load_dataset(dataset_path)
+#         # print(dataset)
+        
+#         # Determine processing logic based on file type
+#         if dataset_path.endswith('.npz'):
+#             x_train, y_train = dataset["x_train"], dataset["y_train"]
+#             input_shape = list(x_train.shape[1:])
+            
+#             #get values or none if not defined
+#             # x_val, y_val = dataset.get("x_val", None), dataset.get("y_val", None)
+#             x_test, y_test = dataset.get("x_test", None), dataset.get("y_test", None)
+#             #return (x_train, x_val, x_test), (y_train, y_val, y_test)
+#             return input_shape, x_train, x_test, y_train, y_test
+        
+#         elif dataset_path.endswith('.csv'):
+#             # Generic DataFrame-based processing (e.g., csv, tsv, etc.)
+#             if dataset_config.get("x_columns"):
+#                 x = dataset[dataset_config["x_columns"]]  # Vybere konkrétní sloupce
+#                 input_shape = [len(dataset_config["x_columns"])]
+#             else:
+#                 x = dataset.iloc[:, :dataset_config["x_num"]]
+#                 input_shape = [dataset_config["x_num"]]
+#             if dataset_config.get("y_columns"):
+#                 y = dataset[dataset_config["y_columns"]]
+#             else:
+#                 y = dataset.iloc[:, dataset_config["y_num"] - 1]
+#             return input_shape, *train_test_split(x, y, test_size=dataset_config["test_size"])
+#     except Exception as e:
+#         raise 
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
+
 def process_dataset(dataset_path, dataset_config):
     try:
-        # Load the dataset
+        # Načtení datasetu
         dataset = load_dataset(dataset_path)
-        # print(dataset)
-        
-        # Determine processing logic based on file type
+
         if dataset_path.endswith('.npz'):
             x_train, y_train = dataset["x_train"], dataset["y_train"]
             input_shape = list(x_train.shape[1:])
-            
-            #get values or none if not defined
-            # x_val, y_val = dataset.get("x_val", None), dataset.get("y_val", None)
             x_test, y_test = dataset.get("x_test", None), dataset.get("y_test", None)
-            #return (x_train, x_val, x_test), (y_train, y_val, y_test)
             return input_shape, x_train, x_test, y_train, y_test
-        
+
         elif dataset_path.endswith('.csv'):
-            # Generic DataFrame-based processing (e.g., csv, tsv, etc.)
+            # Převod číselných stringů na int/float
+            dataset = convert_numeric_columns(dataset)
+
             if dataset_config.get("x_columns"):
                 x = dataset[dataset_config["x_columns"]]  # Vybere konkrétní sloupce
                 input_shape = [len(dataset_config["x_columns"])]
@@ -318,9 +354,95 @@ def process_dataset(dataset_path, dataset_config):
                 y = dataset[dataset_config["y_columns"]]
             else:
                 y = dataset.iloc[:, dataset_config["y_num"] - 1]
-            return input_shape, *train_test_split(x, y, test_size=dataset_config["test_size"])
+
+            # Extrakce Y (cílová proměnná)
+            # y = dataset[dataset_config["y_columns"]]
+
+            print("y před zpracováním:", y)
+            print(y.shape)
+            # Pokud `Y` obsahuje text nebo má nízký počet unikátních hodnot, zakódujeme jako one-hot
+            # categorical_y = detect_text_columns(y) # + detect_low_unique_columns(y, threshold=10)
+            categorical_y = detect_text_columns(y.to_frame() if isinstance(y, pd.Series) else y)
+
+            if categorical_y:
+                # y = apply_one_hot_encoding(y, categorical_y, False)
+                y, label_encoder = encode_labels(y)
+
+            # Extrakce X (všechny původní vstupní proměnné)
+            # x = dataset[dataset_config["x_columns"]]
+
+            # Detekce textových sloupců v `X`
+            categorical_x = detect_text_columns(x)
+
+            # Aplikace One-Hot Encodingu na `X`
+            x = apply_one_hot_encoding(x, categorical_x, True)
+
+            # **Teď se změnily sloupce v X, takže je třeba správně vybrat trénovací a testovací sadu**
+            input_shape = [x.shape[1]]
+
+            # Rozdělení dat na trénovací a testovací sadu
+            print("y: ", y)
+            print(y.shape)
+            x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=dataset_config["test_size"])
+
+            return input_shape, x_train, x_test, y_train, y_test
+
     except Exception as e:
-        raise 
+        print("Error processing dataset:", e)
+        raise
+
+
+def convert_numeric_columns(df):
+    """ Převádí sloupce, které obsahují pouze čísla, na float/int. """
+    for col in df.columns:
+        if df[col].dtype == "object":
+            try:
+                df[col] = pd.to_numeric(df[col])
+            except ValueError:
+                pass
+    return df
+
+
+def detect_text_columns(df):
+    """ Detekuje sloupce, které obsahují text (object dtype). """
+    return df.select_dtypes(include=['object']).columns.tolist()
+
+
+def detect_low_unique_columns(df, threshold=10):
+    """ Detekuje číselné sloupce, které mají méně než `threshold` unikátních hodnot. """
+    categorical_columns = []
+    for col in df.select_dtypes(include=['int', 'float']).columns:
+        if df[col].nunique() <= threshold:
+            categorical_columns.append(col)
+    return categorical_columns
+
+
+def apply_one_hot_encoding(df, categorical_columns, drop_first = True):
+    """ Aplikuje OneHotEncoder pouze na zadané sloupce. """
+    if not categorical_columns:
+        return df
+
+    encoder = OneHotEncoder(drop="first" if drop_first else None, sparse_output=False, handle_unknown="ignore")
+    encoded_cols = encoder.fit_transform(df[categorical_columns])
+
+    encoded_df = pd.DataFrame(encoded_cols, columns=encoder.get_feature_names_out(categorical_columns), index=df.index)
+
+    df = df.drop(columns=categorical_columns)
+    df = pd.concat([df, encoded_df], axis=1)
+
+    return df
+
+def encode_labels(y):
+    
+    label_encoder = LabelEncoder()
+    integer_encoded = label_encoder.fit_transform(y)
+
+    onehot_encoder = OneHotEncoder(sparse_output=False)
+    integer_encoded = integer_encoded.reshape(-1, 1)  # reshape pro sklearn
+    onehot_encoded = onehot_encoder.fit_transform(integer_encoded)
+
+    return onehot_encoded, label_encoder
+
 
 def generate_random_value(random_info):
     """Generate a random value based on the provided randomization info."""
