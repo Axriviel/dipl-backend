@@ -10,212 +10,215 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 #creates optimized model based on selected algorithm
 #returns  best model, best metric value, best metric history, best used parameters
 def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data={}):
-    print("settings:", layers)
+    try:
+        print("settings:", layers)
+
+        opt_method = settings["opt_algorithm"]
+        print("processing dataset")
+        input_shape, x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
+        print("shape", input_shape)
+        # set input shape into input layer
+        layers[0]["shape"] = input_shape
+        print("updated input:", layers[0]["shape"])
+
+        print(x_train)
+#         (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
+
+
+# #     Converting the pixels data to float type
+#         x_train = x_train.astype('float32')
+#         y_train = y_train.astype('float32')
     
-    opt_method = settings["opt_algorithm"]
-    print("processing dataset")
-    input_shape, x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
-    print("shape", input_shape)
-    # set input shape into input layer
-    layers[0]["shape"] = input_shape
-    print("updated input:", layers[0]["shape"])
+# #     Standardizing (255 is the total number of pixels an image can have)
+#         x_train = x_train / 255
+#         y_train = y_train / 255 
 
-    print(x_train)
-#     (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
-    
-
-# # Converting the pixels data to float type
-#     x_train = x_train.astype('float32')
-#     y_train = y_train.astype('float32')
- 
-# # Standardizing (255 is the total number of pixels an image can have)
-#     x_train = x_train / 255
-#     y_train = y_train / 255 
-
-# # One hot encoding the target class (labels)
-#     from tensorflow.keras.utils import to_categorical    
-#     num_classes = 10
-#     y_train = to_categorical(y_train, num_classes)
-#     y_test = to_categorical(y_test, num_classes)
+# #     One hot encoding the target class (labels)
+#         from tensorflow.keras.utils import to_categorical    
+#         num_classes = 10
+#         y_train = to_categorical(y_train, num_classes)
+#         y_test = to_categorical(y_test, num_classes)
 
 
-    print("dataset processed")
+        print("dataset processed")
 
-    if opt_method == "random":
-        try:
-            from optimizers.random_optimizer import random_search
-    
-            # Spuštění random search, můžeme zvolit například sledování metriky val_loss
-            b_model, b_metric_val, b_metric_history, used_params = random_search(layers, settings, 
-                                                      x_train=x_train, y_train=y_train, 
-                                                      x_val=x_test, y_val=y_test, 
-                                                      num_models=settings["max_models"], num_runs=3, 
-                                                      threshold=settings["es_threshold"], 
-#                                                       monitor_metric='val_loss')
-                                                      monitor_metric=settings["monitor_metric"])
+        if opt_method == "random":
+            try:
+                from optimizers.random_optimizer import random_search
+
+                # Spuštění random search, můžeme zvolit například sledování metriky val_loss
+                b_model, b_metric_val, b_metric_history, used_params = random_search(layers, settings, 
+                                                          x_train=x_train, y_train=y_train, 
+                                                          x_val=x_test, y_val=y_test, 
+                                                          num_models=settings["max_models"], num_runs=3, 
+                                                          threshold=settings["es_threshold"], 
+#                                                           monitor_metric='val_loss')
+                                                          monitor_metric=settings["monitor_metric"])
+                print(f"Best model found with {settings['monitor_metric']} : {b_metric_val}")
+                # b_model.summary()
+                return b_model, b_metric_val, b_metric_history, used_params
+
+            except Exception as e:
+                print("GA essentials exception: ", e)
+                raise
+
+
+        elif opt_method == "genetic":
+            try:
+                from optimizers.genetic_optimizer import genetic_optimization
+                ga_config = settings["GA"]
+                print("ga_config: ",ga_config)
+
+                b_model, b_metric_val, b_metric_history, used_params = genetic_optimization(
+                    layers, 
+                    settings, 
+                    x_train=x_train, 
+                    y_train=y_train, 
+                    x_val=x_test, 
+                    y_val=y_test, 
+                    population_size=ga_config["populationSize"], 
+                    num_generations=ga_config["generations"], 
+                    num_parents=ga_config["numParents"], 
+                    mutation_rate=ga_config["mutationRate"], 
+                    selection_method=ga_config["selectionMethod"],
+                    threshold=settings["es_threshold"], 
+                )
+            except Exception as e:
+                print("GA essentials exception: ", e)
+                raise
             
-        except Exception as e:
-            print("GA essentials exception: ", e)
-            raise
-        print(f"Best model found with {settings['monitor_metric']} : {b_metric_val}")
-        # b_model.summary()
-        return b_model, b_metric_val, b_metric_history, used_params
-
-    elif opt_method == "genetic":
-        try:
-            from optimizers.genetic_optimizer import genetic_optimization
-            ga_config = settings["GA"]
-            print("ga_config: ",ga_config)
-
-            b_model, b_metric_val, b_metric_history, used_params = genetic_optimization(
-                layers, 
-                settings, 
-                x_train=x_train, 
-                y_train=y_train, 
-                x_val=x_test, 
-                y_val=y_test, 
-                population_size=ga_config["populationSize"], 
-                num_generations=ga_config["generations"], 
-                num_parents=ga_config["numParents"], 
-                mutation_rate=ga_config["mutationRate"], 
-                selection_method=ga_config["selectionMethod"],
-                threshold=settings["es_threshold"], 
-            )
-        except Exception as e:
-            print("GA essentials exception: ", e)
-            raise
-        
-        print(b_metric_val)
-        print(used_params)
-        # b_model.summary()
-        
-        return b_model, b_metric_val, b_metric_history, used_params
-
-    
-    elif opt_method == "nni":
-        try:
-            from nni.experiment import Experiment
-            import os
-            import json
-
-            nni_config = settings["NNI"]
-
-            # Generování vyhledávacího prostoru
-            search_space = generate_nni_search_space(layers)
-            print("search space:")
-            print(search_space)
-
-            # Uložení vrstev pro trial kód
-            trial_code_dir = 'nni_trials'
-            os.makedirs(trial_code_dir, exist_ok=True)
-            with open(os.path.join(trial_code_dir, 'layers.json'), 'w', encoding="utf-8") as f:
-                json.dump(layers, f)
-
-                # Uložení settings
-            with open(os.path.join(trial_code_dir, 'settings.json'), 'w', encoding="utf-8") as f:
-                json.dump(settings, f)
-
-            # Uložení datasetu jako NumPy pole
-            import numpy as np
-            np.savez(os.path.join(trial_code_dir, 'dataset.npz'), 
-                     x_train=x_train, x_test=x_test, 
-                     y_train=y_train, y_test=y_test)
-            print("vse ulozeno")
-
-            # Nastavení a spuštění NNI experimentu
-            experiment = Experiment('local')
-            experiment.config.search_space = search_space
-            experiment.config.trial_command = 'python trial.py'
-            experiment.config.trial_code_directory = trial_code_dir
-            experiment.config.trial_concurrency = nni_config["nni_concurrency"]
-            experiment.config.max_trial_number = nni_config["nni_max_trials"]
-            experiment.config.tuner.name = nni_config["nni_tuner"]
-
-            print("Starting NNI experiment...")
-            experiment.run(port=8080)
-
-            # Čekání na dokončení experimentu
-            while True:
-                status = experiment.get_status()
-                print(status)
-                if status == 'DONE':
-                    print("Experiment completed successfully!")
-                    break
-                elif status == 'STOPPED':
-                    print("Experiment was stopped manually.")
-                    break
-                elif status == 'ERROR':
-                    print("Experiment encountered an error.")
-                    break
-                time.sleep(5)  # Čekání 5 sekund před kontrolou
-            
-            #get experiment results
-            exp_data = experiment.export_data()
-            print("data", exp_data)
-            
-            #find best result
-            best_trial = get_best_trial(exp_data, optimize_mode="maximize")
-            print("best trial: ", best_trial)
-            # Získání parametrů a hodnoty nejlepšího trialu
-            best_params = best_trial.parameter
-            b_metric_val = best_trial.value
-            print("Nejlepší parametry:", best_params)
-            print("Nejlepší hodnota metriky:", b_metric_val)
-
-
-
-            # exp_profile = experiment.get_experiment_profile()
-            # print(exp_profile)
-
-            # exp_stats = experiment.get_job_statistics()
-            # print(exp_stats)
-           # exp_metr = experiment.get_job_metrics()
-            #print("metrics", exp_metr)
-
-
-            # Sestavení modelu s nejlepšími parametry
-            b_model, used_params = create_functional_model(layers, settings, params = [best_params, {}, []])
-            b_model.fit(x_train, y_train, epochs=10, validation_data=(x_test, y_test))
-
+            print(b_metric_val)
             print(used_params)
-            # print(b_model.summary())
-# 
-            # return best_model, best_trial['value'], None
-        except Exception as e:
-            print("NNI essentials exception: ", e)
-            raise
-        finally:
-            experiment.stop()
-            pass
+            # b_model.summary()
 
-        #not supported yet
-        b_metric_history = []
-    
-        return b_model, b_metric_val, b_metric_history, used_params
+            return b_model, b_metric_val, b_metric_history, used_params
 
-    elif opt_method == "tagging":
-        try:
-            from optimizers.tagging_optimizer import tagging_optimization
-            print("jsem uvnitř taggin essentials")
-            b_model, b_metric_val, b_metric_history, used_params = tagging_optimization(
-                layers, 
-                settings, 
-                x_train=x_train, 
-                y_train=y_train, 
-                x_test=x_test, 
-                y_test=y_test,
-                num_of_models=5, 
-                num_runs=3, 
-                threshold=settings["es_threshold"], 
-                opt_data=opt_data
-            )
-            pass
-        except Exception as e:
-            print("TAGGING essentials exception: ", e)
-            raise
 
-        return b_model, b_metric_val, b_metric_history, used_params
+        elif opt_method == "nni":
+            try:
+                from nni.experiment import Experiment
+                import os
+                import json
 
+                nni_config = settings["NNI"]
+
+                # Generování vyhledávacího prostoru
+                search_space = generate_nni_search_space(layers)
+                print("search space:")
+                print(search_space)
+
+                # Uložení vrstev pro trial kód
+                trial_code_dir = 'nni_trials'
+                os.makedirs(trial_code_dir, exist_ok=True)
+                with open(os.path.join(trial_code_dir, 'layers.json'), 'w', encoding="utf-8") as f:
+                    json.dump(layers, f)
+
+                    # Uložení settings
+                with open(os.path.join(trial_code_dir, 'settings.json'), 'w', encoding="utf-8") as f:
+                    json.dump(settings, f)
+
+                # Uložení datasetu jako NumPy pole
+                import numpy as np
+                np.savez(os.path.join(trial_code_dir, 'dataset.npz'), 
+                         x_train=x_train, x_test=x_test, 
+                         y_train=y_train, y_test=y_test)
+                print("vse ulozeno")
+
+                # Nastavení a spuštění NNI experimentu
+                experiment = Experiment('local')
+                experiment.config.search_space = search_space
+                experiment.config.trial_command = 'python trial.py'
+                experiment.config.trial_code_directory = trial_code_dir
+                experiment.config.trial_concurrency = nni_config["nni_concurrency"]
+                experiment.config.max_trial_number = nni_config["nni_max_trials"]
+                experiment.config.tuner.name = nni_config["nni_tuner"]
+
+                print("Starting NNI experiment...")
+                experiment.run(port=8080)
+
+                # Čekání na dokončení experimentu
+                while True:
+                    status = experiment.get_status()
+                    print(status)
+                    if status == 'DONE':
+                        print("Experiment completed successfully!")
+                        break
+                    elif status == 'STOPPED':
+                        print("Experiment was stopped manually.")
+                        break
+                    elif status == 'ERROR':
+                        print("Experiment encountered an error.")
+                        break
+                    time.sleep(5)  # Čekání 5 sekund před kontrolou
+
+                #get experiment results
+                exp_data = experiment.export_data()
+                print("data", exp_data)
+
+                #find best result
+                best_trial = get_best_trial(exp_data, optimize_mode="maximize")
+                print("best trial: ", best_trial)
+                # Získání parametrů a hodnoty nejlepšího trialu
+                best_params = best_trial.parameter
+                b_metric_val = best_trial.value
+                print("Nejlepší parametry:", best_params)
+                print("Nejlepší hodnota metriky:", b_metric_val)
+
+
+
+                # exp_profile = experiment.get_experiment_profile()
+                # print(exp_profile)
+
+                # exp_stats = experiment.get_job_statistics()
+                # print(exp_stats)
+               # exp_metr = experiment.get_job_metrics()
+                #print("metrics", exp_metr)
+
+
+                # Sestavení modelu s nejlepšími parametry
+                b_model, used_params = create_functional_model(layers, settings, params = [best_params, {}, []])
+                b_model.fit(x_train, y_train, epochs=10, validation_data=(x_test, y_test))
+
+                print(used_params)
+                # print(b_model.summary())
+#   
+                # return best_model, best_trial['value'], None
+            except Exception as e:
+                print("NNI essentials exception: ", e)
+                raise
+            finally:
+                experiment.stop()
+                pass
+
+            #not supported yet
+            b_metric_history = []
+
+            return b_model, b_metric_val, b_metric_history, used_params
+
+        elif opt_method == "tagging":
+            try:
+                from optimizers.tagging_optimizer import tagging_optimization
+                print("jsem uvnitř taggin essentials")
+                b_model, b_metric_val, b_metric_history, used_params = tagging_optimization(
+                    layers, 
+                    settings, 
+                    x_train=x_train, 
+                    y_train=y_train, 
+                    x_test=x_test, 
+                    y_test=y_test,
+                    num_of_models=5, 
+                    num_runs=3, 
+                    threshold=settings["es_threshold"], 
+                    opt_data=opt_data
+                )
+                pass
+            except Exception as e:
+                print("TAGGING essentials exception: ", e)
+                raise
+
+            return b_model, b_metric_val, b_metric_history, used_params
+    except Exception as e:
+        raise e
 
 #used for nni to find best trial in the list (since there is no method for that)
 def get_best_trial(exp_data, optimize_mode="maximize"):
@@ -604,93 +607,96 @@ def get_layer(layer, model=None, optional_param=None):
 
 #used to create the model itself
 def create_functional_model(layers, settings, params = None):
-    #sending as list so that the change is written here
-    print("parametry", params)
-    #print("parametr test 0", list(params.values())[0])
-    # Uložíme výstupy jednotlivých vrstev podle jejich id
-    layer_outputs = {}
-    
-    #used only for generator - params if creating new and number to know which one it is for regenerating from config
-    generator_settings = [None]
-    used_generator_params = []
-    generator_number = 0
+    try:
+        #sending as list so that the change is written here
+        print("parametry", params)
+        #print("parametr test 0", list(params.values())[0])
+        # Uložíme výstupy jednotlivých vrstev podle jejich id
+        layer_outputs = {}
 
-    #process parameters of layers and models settings
-    if params == None:
-        processed_layers, used_layers_params = process_parameters(layers)
-        print("params processed")
-        processed_settings, used_settings_params = process_parameters([settings])
-        #remove outer list
-        processed_settings = processed_settings[0]
-        print("settings processed")
-    else:
-        processed_layers, used_layers_params = process_parameters(layers, params = params[0])
-        processed_settings, used_settings_params = process_parameters([settings], params = params[1])
-        processed_settings = processed_settings[0]
-        generator_settings = params[2]
+        #used only for generator - params if creating new and number to know which one it is for regenerating from config
+        generator_settings = [None]
+        used_generator_params = []
+        generator_number = 0
 
-    unresolved_layers = processed_layers.copy()  # Seznam vrstev, které je třeba ještě zpracovat
+        #process parameters of layers and models settings
+        if params == None:
+            processed_layers, used_layers_params = process_parameters(layers)
+            print("params processed")
+            processed_settings, used_settings_params = process_parameters([settings])
+            #remove outer list
+            processed_settings = processed_settings[0]
+            print("settings processed")
+        else:
+            processed_layers, used_layers_params = process_parameters(layers, params = params[0])
+            processed_settings, used_settings_params = process_parameters([settings], params = params[1])
+            processed_settings = processed_settings[0]
+            generator_settings = params[2]
 
-    print("used params before",  used_layers_params, used_settings_params)
+        unresolved_layers = processed_layers.copy()  # Seznam vrstev, které je třeba ještě zpracovat
 
-    # Prvotní zpracování vstupních vrstev
-    while unresolved_layers:
-        for layer in unresolved_layers[:]:  # Pro každou nezpracovanou vrstvu
-            
-            # Pokud je to vstupní vrstva, vytvoříme ji ihned
-            if layer["type"] == "Input" and layer["id"] not in layer_outputs:
-                input_layer = get_layer(layer, model=None)
-                layer_outputs[layer['id']] = input_layer
-                unresolved_layers.remove(layer)
-                continue
-            # Kontrola, zda všechny vstupy pro tuto vrstvu už byly vytvořeny
-            if all(input_id in layer_outputs for input_id in layer['inputs']):
-                # Vstupy jsou dostupné, můžeme vytvořit tuto vrstvu
-                input_tensors = [layer_outputs[input_id] for input_id in layer['inputs']]
-                
-                # Pokud je pouze jeden vstup, použijeme jej přímo, jinak sloučíme (např. Concatenate)
-                input_tensor = input_tensors[0] if len(input_tensors) == 1 else Concatenate()(input_tensors)
+        print("used params before",  used_layers_params, used_settings_params)
 
-                # Zpracování vrstvy podle typu
-                if layer["type"] == "Generator":
-                    #generator return whole model, so we need to treat it as such
-                    #return model at [0] and replicable process at [1]
-                    print(generator_settings)
-                    
-                    if len(generator_settings)<generator_number+1:
-                        gen_output = get_layer(layer, input_tensor)
+        # Prvotní zpracování vstupních vrstev
+        while unresolved_layers:
+            for layer in unresolved_layers[:]:  # Pro každou nezpracovanou vrstvu
+
+                # Pokud je to vstupní vrstva, vytvoříme ji ihned
+                if layer["type"] == "Input" and layer["id"] not in layer_outputs:
+                    input_layer = get_layer(layer, model=None)
+                    layer_outputs[layer['id']] = input_layer
+                    unresolved_layers.remove(layer)
+                    continue
+                # Kontrola, zda všechny vstupy pro tuto vrstvu už byly vytvořeny
+                if all(input_id in layer_outputs for input_id in layer['inputs']):
+                    # Vstupy jsou dostupné, můžeme vytvořit tuto vrstvu
+                    input_tensors = [layer_outputs[input_id] for input_id in layer['inputs']]
+
+                    # Pokud je pouze jeden vstup, použijeme jej přímo, jinak sloučíme (např. Concatenate)
+                    input_tensor = input_tensors[0] if len(input_tensors) == 1 else Concatenate()(input_tensors)
+
+                    # Zpracování vrstvy podle typu
+                    if layer["type"] == "Generator":
+                        #generator return whole model, so we need to treat it as such
+                        #return model at [0] and replicable process at [1]
+                        print(generator_settings)
+
+                        if len(generator_settings)<generator_number+1:
+                            gen_output = get_layer(layer, input_tensor)
+                        else:
+                            gen_output = get_layer(layer, input_tensor, optional_param=generator_settings[generator_number])
+
+                        generator_number += 1
+                        gen_used_config = gen_output[1]
+                        #save the particular generator info into list in order
+                        used_generator_params.append(gen_used_config)
+
+
+                        output_tensor = gen_output[0]
                     else:
-                        gen_output = get_layer(layer, input_tensor, optional_param=generator_settings[generator_number])
+                        new_layer = get_layer(layer, input_tensor)
+                        output_tensor = new_layer(input_tensor)
 
-                    generator_number += 1
-                    gen_used_config = gen_output[1]
-                    #save the particular generator info into list in order
-                    used_generator_params.append(gen_used_config)
-                    
-                    
-                    output_tensor = gen_output[0]
-                else:
-                    new_layer = get_layer(layer, input_tensor)
-                    output_tensor = new_layer(input_tensor)
-                
-                # Uložíme výstup nové vrstvy pod její id
-                layer_outputs[layer['id']] = output_tensor
-                unresolved_layers.remove(layer)  # Odstraníme vrstvu z nezpracovaných
+                    # Uložíme výstup nové vrstvy pod její id
+                    layer_outputs[layer['id']] = output_tensor
+                    unresolved_layers.remove(layer)  # Odstraníme vrstvu z nezpracovaných
 
-    # Specifikace modelu s použitím vstupní vrstvy a poslední vrstvy jako výstupu
-    input_layer = layer_outputs[processed_layers[0]['id']]
-    output_tensor = list(layer_outputs.values())[-1]  # Poslední vrstva bude výstupní
-    
-    model = Model(inputs=input_layer, outputs=output_tensor)
-    # Kompilace modelu s parametry z nastavení
-    model.compile(
-        optimizer=processed_settings['optimizer'], 
-        loss=processed_settings['loss'], 
-        metrics=processed_settings['metrics']
-    )
-    
-    print("used params: ", used_layers_params, used_settings_params)
-    return model, [used_layers_params, used_settings_params, used_generator_params]
+        # Specifikace modelu s použitím vstupní vrstvy a poslední vrstvy jako výstupu
+        input_layer = layer_outputs[processed_layers[0]['id']]
+        output_tensor = list(layer_outputs.values())[-1]  # Poslední vrstva bude výstupní
+
+        model = Model(inputs=input_layer, outputs=output_tensor)
+        # Kompilace modelu s parametry z nastavení
+        model.compile(
+            optimizer=processed_settings['optimizer'], 
+            loss=processed_settings['loss'], 
+            metrics=processed_settings['metrics']
+        )
+
+        print("used params: ", used_layers_params, used_settings_params)
+        return model, [used_layers_params, used_settings_params, used_generator_params]
+    except Exception as e:
+        raise e
 
 
 def remove_outer_list(x):

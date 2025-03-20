@@ -112,8 +112,14 @@ def make_model():
 
         return jsonify({"message": "Model successfully created and dataset uploaded!"}), 200
     
+    except IndexError as e:
+        active_tasks.pop(user_id, None)
+        print(e)
+        return jsonify({"error": "Incorrect dataset config column indexes"}), 500 
+
     except Exception as e:
         active_tasks.pop(user_id, None)
+        print(e)
         return jsonify({"error": "Error creating model " +str(e)}), 500
 
 
@@ -275,6 +281,9 @@ def make_auto_model():
         active_tasks.pop(user_id, None)
         #upravit, abych vrátil info "model se vytváří" a uložení a notifikaci udělat mimo
         return jsonify({"message": "Model successfully created and saved!"}), 200
+    except IndexError as e:
+        active_tasks.pop(user_id, None)
+        return jsonify({"error": "Incorrect dataset config values"}), 500 
     except Exception as e:
         active_tasks.pop(user_id, None)
         return jsonify({"error": "Error creating model " + str(e)}), 500
