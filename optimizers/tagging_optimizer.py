@@ -44,11 +44,14 @@ def find_candidates(source_tags, task, num_of_models = 3):
         if not candidates:
             candidates = Model.query.all()
 
+        print(candidates)
         #if candidates dont exist even after query all return empty
         if not candidates:
+            print("empty candidates")
             return []
             # Seznam pro ukládání skóre modelů
         scored_models = []
+        print("checking")
 
         # Porovnání každého modelu s tagy
         for model in candidates:
@@ -80,6 +83,7 @@ def find_candidates(source_tags, task, num_of_models = 3):
         print("sort proveden")
         return scored_models[:num_of_models]
     except Exception as e:
+        print("tagging optimizer e", e)
         raise e
 
 def tagging_optimization(layers, 
@@ -142,7 +146,7 @@ def tagging_optimization(layers,
                                                       x_val=x_test, y_val=y_test, 
                                                       num_models=5, num_runs=3, 
                                                       threshold=0.7, 
-                                                      monitor_metric=settings["monitor_metric"])
+                                                      monitor_metric=settings["monitor_metric"], trackProgress=False)
 
             found_models.append([b_model, b_metric_val, b_metric_history, used_params])
 

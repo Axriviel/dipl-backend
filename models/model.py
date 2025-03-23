@@ -5,7 +5,6 @@ from sqlalchemy import JSON
 class Model(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     model_name = db.Column(db.String(100), nullable=False)
-    accuracy = db.Column(db.Float, nullable=False)
     metric_value = db.Column(db.Float, nullable=False)
     watched_metric = db.Column(db.String(100), nullable=False)
     metric_values_history = db.Column(JSON, nullable=True)  # JSON sloupec pro uložení epoch a hodnot
@@ -15,8 +14,10 @@ class Model(db.Model):
     used_task = db.Column(db.String(100), nullable=True)
     used_tags = db.Column(JSON, nullable=True)
     
-    error = db.Column(db.Float, nullable=False)
     dataset = db.Column(db.String(100), nullable=False)
+    used_designer = db.Column(db.String(30), nullable=False) #auto or semi
+    task_protocol = db.Column(JSON, nullable=True)  
+
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     user = db.relationship('User', backref=db.backref('models', lazy=True))

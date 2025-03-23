@@ -9,8 +9,11 @@ from controllers.user_controller import session
 from models.model import Model, db
 from utils.dataset_storing import save_dataset, load_dataset
 from utils.task_progress_manager import progress_manager
+from utils.time_limit_manager import time_limit_manager
+from utils.task_protocol_manager import task_protocol_manager
 from optimizers.essentials import create_optimized_model
 from config.settings import Config
+from dataclasses import asdict
 import random
 import os
 import time
@@ -42,15 +45,13 @@ def check_active_task(user_id):
         active_tasks[user_id] = True
         return True
 
-# def create_auto_model(dataset, task, opt_method, user_id ):
-#     model = Sequential()
-#     model.add(Dense(8))
-#     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-#     return model
+def reset_managers(user_id):
+    active_tasks.pop(user_id, None)
+    # progress_manager.reset_user(user_id)
+    time_limit_manager.reset_user(user_id)
+    task_protocol_manager.reset_user(user_id)
 
-
-
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
 
 # used for semi automatic model creation
 @model_bp.route('/api/save-model', methods=['POST'])
@@ -84,6 +85,11 @@ def make_model():
         layers = json.loads(request.form.get('layers', '[]'))
         settings = json.loads(request.form.get('settings', '{}'))
         dataset_config = json.loads(request.form.get('datasetConfig', '{}'))
+        tags = request.form.get("tags")
+        print("tasg:", tags)
+        # task type is known for custom designer
+        additional_data = {"task_type": "undefined", "tags": tags }
+        print(additional_data, "jsou další data")
         
         nni_config = settings["NNI"]
         print(nni_config)
@@ -99,26 +105,30 @@ def make_model():
         
         #x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
 
+        # ˇpřidat timeout do custom designeru
+        # time_limit_manager.add_user(user_id, settings["time_limit"])
 
         # Vytvoření modelu
         create_notification(for_user_id=user_id, message="Creating started")
         progress_manager.update_progress(user_id, 0)
-        best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config)
+        best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config,  opt_data=additional_data)
 
         # Uložení modelu a notifikace
-        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params,model_name = settings["model_name"], used_opt_method=settings["opt_algorithm"])
+        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params,model_name = settings["model_name"], used_opt_method=settings["opt_algorithm"], used_task = "undefined", used_tags = tags, used_designer="custom")
         
-        active_tasks.pop(user_id, None)
+        # active_tasks.pop(user_id, None)
+        # progress_manager.reset_user(user_id)
 
+        reset_managers(user_id)
         return jsonify({"message": "Model successfully created and dataset uploaded!"}), 200
     
     except IndexError as e:
-        active_tasks.pop(user_id, None)
+        reset_managers(user_id)
         print(e)
         return jsonify({"error": "Incorrect dataset config column indexes"}), 500 
 
     except Exception as e:
-        active_tasks.pop(user_id, None)
+        reset_managers(user_id)
         print(e)
         return jsonify({"error": "Error creating model " +str(e)}), 500
 
@@ -220,7 +230,7 @@ def make_auto_model():
         settings = json.loads(request.form.get('settings', '{}'))
         dataset_config = json.loads(request.form.get('datasetConfig', '{}'))
         max_models = request.form.get('maxModels')
-        timer = request.form.get('timeOut')
+        timeout = request.form.get('timeOut')
         task_type = request.form.get('taskType')
         use_default_dataset = request.form.get('useDefaultDataset')
         tags = request.form.get("tags")
@@ -234,7 +244,7 @@ def make_auto_model():
         print("settings auto", settings)
         print("dataset_config auto", dataset_config)
         print("max_models auto", max_models)
-        print("timer auto", timer)
+        print("timer auto", timeout)
 
         additional_data = {"task_type": task_type, "tags": tags }
         print(additional_data, "jsou další data")
@@ -253,14 +263,14 @@ def make_auto_model():
 
 
         
-        
+        time_limit_manager.add_user(user_id, timeout)
         create_notification(for_user_id = user_id, message = "Creating started")
         #model = create_auto_model(dataset, task_type, opt_method, user_id)
         progress_manager.update_progress(user_id, 0)
         best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data=additional_data)
 
         # Uložení modelu a notifikace
-        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params, model_name = settings["model_name"], used_opt_method=settings["opt_algorithm"], used_task = task_type, used_tags = tags)
+        save_and_notification(best_model, user_id, dataset=dataset_name, metric_value=best_metric, watched_metric=settings["monitor_metric"], metric_values_history=best_metric_history, creation_config = [layers, settings, dataset_config], used_params = used_params, model_name = settings["model_name"], used_opt_method=settings["opt_algorithm"], used_task = task_type, used_tags = tags, used_designer="automated")
         
 
         
@@ -279,13 +289,16 @@ def make_auto_model():
         #loaded_model = load_model("userModels/" + "model.keras")
         #loaded_model.summary()
         active_tasks.pop(user_id, None)
+        progress_manager.reset_user(user_id)
         #upravit, abych vrátil info "model se vytváří" a uložení a notifikaci udělat mimo
         return jsonify({"message": "Model successfully created and saved!"}), 200
     except IndexError as e:
         active_tasks.pop(user_id, None)
+        progress_manager.reset_user(user_id)
         return jsonify({"error": "Incorrect dataset config values"}), 500 
     except Exception as e:
         active_tasks.pop(user_id, None)
+        progress_manager.reset_user(user_id)
         return jsonify({"error": "Error creating model " + str(e)}), 500
     
 
@@ -425,12 +438,12 @@ def get_task_progress():
 
 
 #save model and create notification
-def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "myModel", used_opt_method="undefined", used_task = "", used_tags = {}):
+def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "myModel", used_opt_method="undefined", used_task = "", used_tags = {}, used_designer="unknown"):
         try:
             if model_name == "myModel":
                 model_name = "model_"+ str(round(random.random(), 3))
 
-            new_model = Model(model_name = model_name, accuracy = 0.75, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, error = 0.07, dataset = dataset, user_id = user_id, used_task=used_task, used_tags=used_tags)
+            new_model = Model(model_name = model_name, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, dataset = dataset, user_id = user_id, used_task=used_task, used_tags=used_tags, used_designer=used_designer, task_protocol=asdict(task_protocol_manager.get_log(user_id)))
             db.session.add(new_model)
             db.session.commit()
             model_id = new_model.id

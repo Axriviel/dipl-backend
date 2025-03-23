@@ -6,7 +6,7 @@ class TaskProgressManager:
         self.task_progress[user_id] = progress
 
     def get_progress(self, user_id):
-        return self.task_progress.get(user_id, -1)
+        return self.task_progress.get(user_id, 0)
     
     def reset_user(self, user_id):
         self.task_progress.pop(user_id)

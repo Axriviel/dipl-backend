@@ -1,10 +1,13 @@
 from tensorflow.keras.layers import Input, Dense, Concatenate, Conv2D, Dropout, MaxPooling2D, LSTM, Flatten, BatchNormalization
 from tensorflow.keras.models import Model
+from utils.task_protocol_manager import task_protocol_manager
 from tensorflow import keras
+from flask import session
 import time
 import random
 from utils.dataset_storing import load_dataset
 from sklearn.model_selection import train_test_split
+from datetime import datetime
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 #creates optimized model based on selected algorithm
@@ -388,6 +391,18 @@ def process_dataset(dataset_path, dataset_config):
             print(y.shape)
             x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=dataset_config["test_size"])
 
+            user_id = session.get("user_id")
+
+            columns_info = {
+            "x_columns": dataset_config.get("x_columns") or list(dataset.columns[:dataset_config["x_num"]]),
+            "y_columns": dataset_config.get("y_columns") or [dataset.columns[dataset_config["y_num"] - 1]],
+            "one_hot_encoded_x": categorical_x,
+            "one_hot_encoded_y": categorical_y
+            }
+            task_protocol_manager.log_item(user_id, "finished_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            task_protocol_manager.log_dict(user_id, columns_info)
+
+            
             return input_shape, x_train, x_test, y_train, y_test
 
     except Exception as e:

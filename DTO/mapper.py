@@ -23,11 +23,12 @@ def map_model_to_dto(model):
     return ModelDTO(
         id=model.id,
         name=model.model_name,
-        accuracy=model.accuracy,
         metric_value=model.metric_value,
         watched_metric=model.watched_metric,
         metric_values_history=model.metric_values_history,
         used_opt_method=model.used_opt_method,
-        error=model.error,
+        used_designer=model.used_designer,
+        used_tags=model.used_tags,
+        task_protocol=model.task_protocol,
         dataset=model.dataset,
     )
