@@ -8,7 +8,7 @@ from controllers.notification_controller import create_notification
 from controllers.user_controller import session
 from models.model import Model, db
 from utils.dataset_storing import save_dataset, load_dataset
-from utils.task_progress_manager import progress_manager
+from utils.task_progress_manager import progress_manager, termination_manager
 from utils.time_limit_manager import time_limit_manager
 from utils.task_protocol_manager import task_protocol_manager
 from optimizers.essentials import create_optimized_model
@@ -17,6 +17,7 @@ from dataclasses import asdict
 import random
 import os
 import time
+from datetime import datetime
 import json
 
 
@@ -48,6 +49,7 @@ def check_active_task(user_id):
 def reset_managers(user_id):
     active_tasks.pop(user_id, None)
     # progress_manager.reset_user(user_id)
+    termination_manager.reset_user(user_id)
     time_limit_manager.reset_user(user_id)
     task_protocol_manager.reset_user(user_id)
 
@@ -108,9 +110,12 @@ def make_model():
         # ˇpřidat timeout do custom designeru
         # time_limit_manager.add_user(user_id, settings["time_limit"])
 
+        if(settings["use_timeout"]):
+            time_limit_manager.add_user(user_id, settings["timeout"])
         # Vytvoření modelu
         create_notification(for_user_id=user_id, message="Creating started")
         progress_manager.update_progress(user_id, 0)
+        task_protocol_manager.log_item(user_id, "started_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config,  opt_data=additional_data)
 
         # Uložení modelu a notifikace
@@ -125,12 +130,14 @@ def make_model():
     except IndexError as e:
         reset_managers(user_id)
         print(e)
+        create_notification(for_user_id=user_id, message=""+str(e))
         return jsonify({"error": "Incorrect dataset config column indexes"}), 500 
 
     except Exception as e:
         reset_managers(user_id)
         print(e)
-        return jsonify({"error": "Error creating model " +str(e)}), 500
+        create_notification(for_user_id=user_id, message=""+str(e))
+        return jsonify({"error": "Error creating model: " +str(e)}), 500
 
 
 # #create task make model
@@ -230,7 +237,6 @@ def make_auto_model():
         settings = json.loads(request.form.get('settings', '{}'))
         dataset_config = json.loads(request.form.get('datasetConfig', '{}'))
         max_models = request.form.get('maxModels')
-        timeout = request.form.get('timeOut')
         task_type = request.form.get('taskType')
         use_default_dataset = request.form.get('useDefaultDataset')
         tags = request.form.get("tags")
@@ -244,7 +250,6 @@ def make_auto_model():
         print("settings auto", settings)
         print("dataset_config auto", dataset_config)
         print("max_models auto", max_models)
-        print("timer auto", timeout)
 
         additional_data = {"task_type": task_type, "tags": tags }
         print(additional_data, "jsou další data")
@@ -262,10 +267,12 @@ def make_auto_model():
         # dataset = load_dataset(dataset_path)
 
 
-        
-        time_limit_manager.add_user(user_id, timeout)
+        if(settings["use_timeout"]):
+            print("using timer", settings["use_timeout"])
+            time_limit_manager.add_user(user_id, settings["timeout"])
         create_notification(for_user_id = user_id, message = "Creating started")
         #model = create_auto_model(dataset, task_type, opt_method, user_id)
+        task_protocol_manager.log_item(user_id, "started_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         progress_manager.update_progress(user_id, 0)
         best_model, best_metric, best_metric_history, used_params = create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data=additional_data)
 
@@ -288,18 +295,17 @@ def make_auto_model():
         #save_model(model, "userModels/" + "model.keras")
         #loaded_model = load_model("userModels/" + "model.keras")
         #loaded_model.summary()
-        active_tasks.pop(user_id, None)
-        progress_manager.reset_user(user_id)
+        reset_managers(user_id)
         #upravit, abych vrátil info "model se vytváří" a uložení a notifikaci udělat mimo
         return jsonify({"message": "Model successfully created and saved!"}), 200
     except IndexError as e:
-        active_tasks.pop(user_id, None)
-        progress_manager.reset_user(user_id)
+        reset_managers(user_id)
+        create_notification(for_user_id=user_id, message=""+str(e))
         return jsonify({"error": "Incorrect dataset config values"}), 500 
     except Exception as e:
-        active_tasks.pop(user_id, None)
-        progress_manager.reset_user(user_id)
-        return jsonify({"error": "Error creating model " + str(e)}), 500
+        reset_managers(user_id)
+        create_notification(for_user_id=user_id, message=""+str(e))
+        return jsonify({"error": "Error creating model: " + str(e)}), 500
     
 
 #get all models
@@ -436,10 +442,20 @@ def get_task_progress():
         "isRunning": is_running
     })
 
+@model_bp.route("/api/cancel-task", methods=['GET'])
+def cancel_user_task():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "User not authenticated"}), 401
+    termination_manager.terminate_user_task(user_id)
+    return jsonify({"message": "Task cancel accepted"}), 200
+
 
 #save model and create notification
 def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "myModel", used_opt_method="undefined", used_task = "", used_tags = {}, used_designer="unknown"):
         try:
+            task_protocol_manager.log_item(user_id, "finished_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
             if model_name == "myModel":
                 model_name = "model_"+ str(round(random.random(), 3))
 

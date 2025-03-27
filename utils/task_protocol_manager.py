@@ -11,7 +11,7 @@ class TaskProtocol:
     y_columns: List[str] = field(default_factory=list)
     one_hot_encoded_x: List[str] = field(default_factory=list)
     one_hot_encoded_y: List[str] = field(default_factory=list)
-    start_time: Optional[float] = None
+    started_at: Optional[str] = None
     finished_at: Optional[str] = None
     additional_info: Dict[str, any] = field(default_factory=dict)
 

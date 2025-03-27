@@ -7,7 +7,6 @@ import time
 import random
 from utils.dataset_storing import load_dataset
 from sklearn.model_selection import train_test_split
-from datetime import datetime
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 #creates optimized model based on selected algorithm
@@ -399,7 +398,6 @@ def process_dataset(dataset_path, dataset_config):
             "one_hot_encoded_x": categorical_x,
             "one_hot_encoded_y": categorical_y
             }
-            task_protocol_manager.log_item(user_id, "finished_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             task_protocol_manager.log_dict(user_id, columns_info)
 
             

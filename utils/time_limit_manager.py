@@ -13,7 +13,7 @@ class TimeLimitManager:
     def has_time_exceeded(self, user_id):
         """Vrací True, pokud už uplynul časový limit pro daného uživatele."""
         if user_id not in self.start_times:
-            return False  # nebo raise výjimku, podle potřeby
+            return False 
 
         elapsed = time.time() - self.start_times[user_id]
         print("timer check:", elapsed, self.time_limits.get(user_id, 0))
@@ -21,8 +21,10 @@ class TimeLimitManager:
 
     def reset_user(self, user_id):
         """Odstraní informace o uživateli (např. po dokončení nebo zrušení tasku)."""
-        self.start_times.pop(user_id, None)
-        self.time_limits.pop(user_id, None)
+        if self.start_times.get(user_id, False):
+            self.start_times.pop(user_id, None)
+        if self.time_limits.get(user_id, False):
+            self.time_limits.pop(user_id, None)
 
 # Vytvoření instance pro sdílení mezi moduly
 time_limit_manager = TimeLimitManager()

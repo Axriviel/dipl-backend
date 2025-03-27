@@ -1,6 +1,6 @@
 import numpy as np
 from tensorflow.keras.callbacks import EarlyStopping
-from utils.task_progress_manager import progress_manager
+from utils.task_progress_manager import progress_manager, termination_manager
 from utils.time_limit_manager import time_limit_manager
 from .essentials import create_functional_model, process_parameters
 from flask import session
@@ -253,6 +253,7 @@ def genetic_optimization(
     monitor_metric='val_accuracy',
     selection_method="Roulette",  # Metoda výběru rodičů
     threshold=0.7, 
+    max_models=5,
     trackProgress = True
 ):
     try:
@@ -327,6 +328,8 @@ def genetic_optimization(
                 progress_manager.update_progress(user_id, progress)
 
             print(f"Best model in generation {generation + 1}: {monitor_metric} = {generation_best_score}")
+            if(termination_manager.is_terminated(user_id)):
+                raise Exception("Task terminated by user")
             if(time_limit_manager.has_time_exceeded(user_id)):
                 break
 
