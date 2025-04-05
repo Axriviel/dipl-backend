@@ -48,7 +48,7 @@ def check_active_task(user_id):
 
 def reset_managers(user_id):
     active_tasks.pop(user_id, None)
-    # progress_manager.reset_user(user_id)
+    progress_manager.reset_user(user_id)
     termination_manager.reset_user(user_id)
     time_limit_manager.reset_user(user_id)
     task_protocol_manager.reset_user(user_id)
@@ -452,11 +452,11 @@ def cancel_user_task():
 
 
 #save model and create notification
-def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "myModel", used_opt_method="undefined", used_task = "", used_tags = {}, used_designer="unknown"):
+def save_and_notification(model, user_id, dataset, metric_value="0", watched_metric="accuracy", metric_values_history=[{}], creation_config = [{}], used_params=[{}], model_name = "", used_opt_method="undefined", used_task = "", used_tags = {}, used_designer="unknown"):
         try:
             task_protocol_manager.log_item(user_id, "finished_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-            if model_name == "myModel":
+            if model_name == "":
                 model_name = "model_"+ str(round(random.random(), 3))
 
             new_model = Model(model_name = model_name, metric_value = round(metric_value, 3), watched_metric = watched_metric, metric_values_history = metric_values_history, creation_config = creation_config, used_params = used_params, used_opt_method=used_opt_method, dataset = dataset, user_id = user_id, used_task=used_task, used_tags=used_tags, used_designer=used_designer, task_protocol=asdict(task_protocol_manager.get_log(user_id)))

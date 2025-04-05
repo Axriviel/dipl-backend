@@ -8,16 +8,30 @@ import random
 from utils.dataset_storing import load_dataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from utils.task_progress_manager import growth_limiter_manager
 
 #creates optimized model based on selected algorithm
 #returns  best model, best metric value, best metric history, best used parameters
 def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_data={}):
     try:
+        user_id = session["user_id"]
+        num_runs = settings.get("k-fold", 1)
         print("settings:", layers)
 
         opt_method = settings["opt_algorithm"]
+        max_progress = 1
+        if opt_method == "random":
+            max_progress = settings.get("max_models", 5)
+        elif opt_method == "genetic":
+            settings.get("GA", {}).get("generations", 10)
+        else:
+            max_progress = settings.get("max_models", 5)
+
+        growth_limiter_manager.set_growth(user_id, settings.get("limit_growth", "none"), max_progress)
+
+
         print("processing dataset")
-        input_shape, x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config)
+        input_shape, x_train, x_test, y_train, y_test = process_dataset(dataset_path, dataset_config, settings)
         print("shape", input_shape)
         # set input shape into input layer
         layers[0]["shape"] = input_shape
@@ -52,7 +66,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                 b_model, b_metric_val, b_metric_history, used_params = random_search(layers, settings, 
                                                           x_train=x_train, y_train=y_train, 
                                                           x_val=x_test, y_val=y_test, 
-                                                          num_models=settings["max_models"], num_runs=3, 
+                                                          num_models=settings["max_models"], num_runs=num_runs, 
                                                           threshold=settings["es_threshold"], 
 #                                                           monitor_metric='val_loss')
                                                           monitor_metric=settings["monitor_metric"])
@@ -78,6 +92,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                     y_train=y_train, 
                     x_val=x_test, 
                     y_val=y_test, 
+                    num_runs = num_runs,
                     population_size=ga_config["populationSize"], 
                     num_generations=ga_config["generations"], 
                     num_parents=ga_config["numParents"], 
@@ -163,7 +178,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                 # Získání parametrů a hodnoty nejlepšího trialu
                 best_params = best_trial.parameter
                 b_metric_val = best_trial.value
-                print("Nejlepší parametry:", best_params)
+                # print("Nejlepší parametry:", best_params)
                 print("Nejlepší hodnota metriky:", b_metric_val)
 
 
@@ -181,7 +196,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                 b_model, used_params = create_functional_model(layers, settings, params = [best_params, {}, []])
                 b_model.fit(x_train, y_train, epochs=10, validation_data=(x_test, y_test))
 
-                print(used_params)
+                # print(used_params)
                 # print(b_model.summary())
 #   
                 # return best_model, best_trial['value'], None
@@ -209,7 +224,7 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                     x_test=x_test, 
                     y_test=y_test,
                     num_of_models=5, 
-                    num_runs=3, 
+                    num_runs=num_runs, 
                     threshold=settings["es_threshold"], 
                     opt_data=opt_data
                 )
@@ -334,9 +349,96 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-def process_dataset(dataset_path, dataset_config):
+# def process_dataset(dataset_path, dataset_config):
+#     try:
+#         # Načtení datasetu
+#         dataset = load_dataset(dataset_path)
+
+#         if dataset_path.endswith('.npz'):
+#             x_train, y_train = dataset["x_train"], dataset["y_train"]
+#             input_shape = list(x_train.shape[1:])
+#             x_test, y_test = dataset.get("x_test", None), dataset.get("y_test", None)
+#             return input_shape, x_train, x_test, y_train, y_test
+
+#         elif dataset_path.endswith('.csv'):
+#             # Převod číselných stringů na int/float
+#             dataset = convert_numeric_columns(dataset)
+
+#             if dataset_config.get("x_columns"):
+#                 x = dataset[dataset_config["x_columns"]]  # Vybere konkrétní sloupce
+#                 input_shape = [len(dataset_config["x_columns"])]
+#             else:
+#                 x = dataset.iloc[:, :dataset_config["x_num"]]
+#                 input_shape = [dataset_config["x_num"]]
+#             if dataset_config.get("y_columns"):
+#                 y = dataset[dataset_config["y_columns"]]
+#             else:
+#                 y = dataset.iloc[:, dataset_config["y_num"] - 1]
+
+#             # Extrakce Y (cílová proměnná)
+#             # y = dataset[dataset_config["y_columns"]]
+
+#             x_onehot_cols = dataset_config.get("one_hot_x_columns", [])
+#             y_onehot_cols = dataset_config.get("one_hot_y_columns", [])
+
+
+#             # print("y před zpracováním:", y)
+#             # print(y.shape)
+#             # Pokud `Y` obsahuje text nebo má nízký počet unikátních hodnot, zakódujeme jako one-hot
+#             # categorical_y = detect_text_columns(y) # + detect_low_unique_columns(y, threshold=10)
+            
+#             # always do encoding - mainly automated multiclass
+#             categorical_y = []
+#             if(dataset_config.get("encode_y", False)):
+#                 print("encode_y")
+#                 y, _ = encode_labels(y)
+#             elif(y_onehot_cols):
+#                 print("y_cols")
+#                 y, _ = encode_labels(y)
+#             else:           
+#                 categorical_y = detect_text_columns(y.to_frame() if isinstance(y, pd.Series) else y)
+#                 if categorical_y:
+#                     y, label_encoder = encode_labels(y)
+
+#             # Extrakce X (všechny původní vstupní proměnné)
+#             # x = dataset[dataset_config["x_columns"]]
+
+#             if(x_onehot_cols):
+#                 x = apply_one_hot_encoding(x, x_onehot_cols)
+
+#             # Detekce textových sloupců v `X`
+#             categorical_x = detect_text_columns(x)
+
+#             # Aplikace One-Hot Encodingu na `X`
+#             x = apply_one_hot_encoding(x, categorical_x, True)
+
+#             # **Teď se změnily sloupce v X, takže je třeba správně vybrat trénovací a testovací sadu**
+#             input_shape = [x.shape[1]]
+#             print("encoded y",y)
+#             # Rozdělení dat na trénovací a testovací sadu
+#             # print("y: ", y)
+#             # print(y.shape)
+#             x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=dataset_config["test_size"])
+
+#             user_id = session.get("user_id")
+
+#             columns_info = {
+#             "x_columns": dataset_config.get("x_columns") or list(dataset.columns[:dataset_config["x_num"]]),
+#             "y_columns": dataset_config.get("y_columns") or [dataset.columns[dataset_config["y_num"] - 1]],
+#             "one_hot_encoded_x": categorical_x,
+#             "one_hot_encoded_y": categorical_y
+#             }
+#             task_protocol_manager.log_dict(user_id, columns_info)
+
+            
+#             return input_shape, x_train, x_test, y_train, y_test
+
+#     except Exception as e:
+#         print("Error processing dataset:", e)
+#         raise
+
+def process_dataset(dataset_path, dataset_config, model_settings):
     try:
-        # Načtení datasetu
         dataset = load_dataset(dataset_path)
 
         if dataset_path.endswith('.npz'):
@@ -346,61 +448,72 @@ def process_dataset(dataset_path, dataset_config):
             return input_shape, x_train, x_test, y_train, y_test
 
         elif dataset_path.endswith('.csv'):
-            # Převod číselných stringů na int/float
             dataset = convert_numeric_columns(dataset)
 
             if dataset_config.get("x_columns"):
-                x = dataset[dataset_config["x_columns"]]  # Vybere konkrétní sloupce
+                x = dataset[dataset_config["x_columns"]]
                 input_shape = [len(dataset_config["x_columns"])]
             else:
                 x = dataset.iloc[:, :dataset_config["x_num"]]
                 input_shape = [dataset_config["x_num"]]
+
             if dataset_config.get("y_columns"):
                 y = dataset[dataset_config["y_columns"]]
             else:
                 y = dataset.iloc[:, dataset_config["y_num"] - 1]
 
-            # Extrakce Y (cílová proměnná)
-            # y = dataset[dataset_config["y_columns"]]
+            # Převod Series na DataFrame
+            if isinstance(y, pd.Series):
+                y = y.to_frame()
 
-            print("y před zpracováním:", y)
-            print(y.shape)
-            # Pokud `Y` obsahuje text nebo má nízký počet unikátních hodnot, zakódujeme jako one-hot
-            # categorical_y = detect_text_columns(y) # + detect_low_unique_columns(y, threshold=10)
-            categorical_y = detect_text_columns(y.to_frame() if isinstance(y, pd.Series) else y)
+            x_onehot_cols = dataset_config.get("one_hot_x_columns", [])
+            y_onehot_cols = dataset_config.get("one_hot_y_columns", [])
 
-            if categorical_y:
-                # y = apply_one_hot_encoding(y, categorical_y, False)
-                y, label_encoder = encode_labels(y)
+            categorical_y = []
 
-            # Extrakce X (všechny původní vstupní proměnné)
-            # x = dataset[dataset_config["x_columns"]]
+            # ======== ENCODING Y =========
+            # sparse nefunguje s one-hot encoded daty
+            if dataset_config.get("encode_y", False) and dataset_config.get("loss") != "sparse_categorical_crossentropy":
+                print("Full y encoding (encode_y = True)")
+                y, _ = encode_labels(y.iloc[:, 0])  # očekáváme pouze jeden sloupec
+                categorical_y = [y.columns[0]] if isinstance(y, pd.DataFrame) else []
+            elif y_onehot_cols:
+                print("Encoding specific y columns:", y_onehot_cols)
+                y_encoded = y.copy()
+                for col in y_onehot_cols:
+                    encoded = apply_one_hot_encoding(y[[col]], [col], drop_first=False)
+                    y_encoded = y_encoded.drop(columns=col).join(encoded)
+                y = y_encoded
+                categorical_y = y_onehot_cols
+            else:
+                print("Auto-detecting text columns in y")
+                categorical_y = detect_text_columns(y)
+                if categorical_y:
+                    y = apply_one_hot_encoding(y, categorical_y)
 
-            # Detekce textových sloupců v `X`
+            # ========== ENCODING X ==========
+            if x_onehot_cols:
+                x = apply_one_hot_encoding(x, x_onehot_cols)
+
             categorical_x = detect_text_columns(x)
-
-            # Aplikace One-Hot Encodingu na `X`
             x = apply_one_hot_encoding(x, categorical_x, True)
 
-            # **Teď se změnily sloupce v X, takže je třeba správně vybrat trénovací a testovací sadu**
             input_shape = [x.shape[1]]
 
-            # Rozdělení dat na trénovací a testovací sadu
-            print("y: ", y)
-            print(y.shape)
+            print("encoded y", y)
+
             x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=dataset_config["test_size"])
 
             user_id = session.get("user_id")
 
             columns_info = {
-            "x_columns": dataset_config.get("x_columns") or list(dataset.columns[:dataset_config["x_num"]]),
-            "y_columns": dataset_config.get("y_columns") or [dataset.columns[dataset_config["y_num"] - 1]],
-            "one_hot_encoded_x": categorical_x,
-            "one_hot_encoded_y": categorical_y
+                "x_columns": dataset_config.get("x_columns") or list(dataset.columns[:dataset_config["x_num"]]),
+                "y_columns": dataset_config.get("y_columns") or [dataset.columns[dataset_config["y_num"] - 1]],
+                "one_hot_encoded_x": categorical_x,
+                "one_hot_encoded_y": categorical_y
             }
             task_protocol_manager.log_dict(user_id, columns_info)
 
-            
             return input_shape, x_train, x_test, y_train, y_test
 
     except Exception as e:
@@ -433,7 +546,7 @@ def detect_low_unique_columns(df, threshold=10):
     return categorical_columns
 
 
-def apply_one_hot_encoding(df, categorical_columns, drop_first = True):
+def apply_one_hot_encoding(df, categorical_columns, drop_first = False):
     """ Aplikuje OneHotEncoder pouze na zadané sloupce. """
     if not categorical_columns:
         return df
@@ -448,25 +561,100 @@ def apply_one_hot_encoding(df, categorical_columns, drop_first = True):
 
     return df
 
-def encode_labels(y):
+# def encode_labels(y):
     
+#     label_encoder = LabelEncoder()
+#     integer_encoded = label_encoder.fit_transform(y)
+
+#     onehot_encoder = OneHotEncoder(sparse_output=False)
+#     integer_encoded = integer_encoded.reshape(-1, 1)  # reshape pro sklearn
+#     onehot_encoded = onehot_encoder.fit_transform(integer_encoded)
+
+#     return onehot_encoded, label_encoder
+def encode_labels(y):
     label_encoder = LabelEncoder()
     integer_encoded = label_encoder.fit_transform(y)
 
     onehot_encoder = OneHotEncoder(sparse_output=False)
-    integer_encoded = integer_encoded.reshape(-1, 1)  # reshape pro sklearn
+    integer_encoded = integer_encoded.reshape(-1, 1)
     onehot_encoded = onehot_encoder.fit_transform(integer_encoded)
 
-    return onehot_encoded, label_encoder
+    # Získání názvů tříd
+    class_labels = label_encoder.classes_
+    columns = [f"{y.name}_{cls}" for cls in class_labels]
+
+    return pd.DataFrame(onehot_encoded, columns=columns), label_encoder
 
 
 def generate_random_value(random_info):
-    """Generate a random value based on the provided randomization info."""
-    if random_info['type'] == 'numeric':
-        return random.randint(random_info['min'], random_info['max'])
-    elif random_info['type'] == 'text':
-        return random.choice(random_info['options'])
-    return None
+    try:
+        """Generate a random value based on the provided randomization info."""
+        if random_info['type'] == 'numeric-test':
+            return random.randint(random_info['min'], random_info['max'])
+        elif random_info['type'] == 'numeric':
+            min_val = random_info['min']
+            max_val = random_info['max']
+            step = random_info.get('step', 1)
+    
+            is_float = isinstance(step, float) or isinstance(min_val, float) or isinstance(max_val, float)
+    
+            count = int((max_val - min_val) / step) + 1
+            values = [round(min_val + i * step, 10) for i in range(count)]
+    
+            return random.choice(values if is_float else list(map(int, values)))
+        elif random_info['type'] == 'text':
+            return random.choice(random_info['options'])
+        return None
+    except:
+        raise ValueError("Could not generate random")
+
+def use_limit_growth_function(random_info, used_growth_function, generation, max_generations):
+    print("using growth limits:", used_growth_function, generation, max_generations)
+    # Použij pouze pro číselné typy
+    if random_info['type'] not in ['numeric', 'numeric-test']:
+        return random_info
+
+    # Získání hodnot
+    original_min = random_info.get('original_min', random_info['min'])
+    original_max = random_info.get('original_max', random_info['max'])
+    step = random_info.get('step', 1)
+
+    # Uložení původních hodnot, pokud ještě nejsou
+    random_info['original_min'] = original_min
+    random_info['original_max'] = original_max
+
+    # Poměr postupu (0 až 1)
+    progress = generation / max_generations if max_generations > 0 else 1.0
+
+    # Výpočet nového maxima podle růstové funkce
+    if used_growth_function == "linear":
+        new_max = original_min + progress * (original_max - original_min)
+
+    elif used_growth_function == "square":
+        new_max = original_min + (original_max - original_min) * (progress ** 2)
+
+    elif used_growth_function == "log":
+        import math
+        scale = (original_max - original_min) / math.log(max_generations + 1)
+        new_max = original_min + scale * math.log(generation + 1)
+    else:
+        new_max = original_max  # fallback
+
+    # Ověření minimálního rozsahu (alespoň jedna hodnota krokem)
+    min_allowed_max = original_min + step
+    if new_max < min_allowed_max:
+        new_max = min_allowed_max
+        
+    # Pokud pracujeme s celočíselnými hodnotami, zaokrouhlujeme max dolů na int
+    if all(isinstance(x, int) for x in [original_min, original_max, step]):
+        new_max = int(new_max)
+
+    # Aktualizuj random_info
+    random_info['min'] = original_min
+    random_info['max'] = min(new_max, original_max)
+
+    return random_info
+
 
 #process and return a list of parameters
 def process_parameters(config, params=None, keras_int_params=None):
@@ -474,16 +662,17 @@ def process_parameters(config, params=None, keras_int_params=None):
     processed_config = copy.deepcopy(config)
     used_params = {}  #save used params
     paramNum = 0
-    print("parametry jsou:", params)
+    user_id = session.get("user_id")
+    # print("parametry jsou:", params)
 
     if keras_int_params is None:
         from config.settings import Config 
         keras_int_params = Config.KERAS_INT_PARAMS
     
     for i in processed_config:
-        print(i)
+        # print(i)
         for key, value in i.items():
-            print(key, value)
+            # print(key, value)
         # Kontrola klíčů, které obsahují "Random", a uložení náhodné hodnoty pod klíč bez "Random"
             if 'Random' in key:
                 base_key = key.replace('Random', '')  # Získání základního klíče (např. 'units' z 'unitsRandom')
@@ -496,7 +685,16 @@ def process_parameters(config, params=None, keras_int_params=None):
                         param_value = int(param_value)
                     i[base_key] = param_value
                 else:
-                    param_value = generate_random_value(value)
+                    # value contains configuration for keys with Random
+                    growth_limited_value = use_limit_growth_function(value, growth_limiter_manager.get_growth_function(user_id), 
+                                                                     growth_limiter_manager.get_current_progress(user_id),
+                                                                     growth_limiter_manager.get_max_progress(user_id))
+                    # log limits used in current epoch
+                    # tady bude možná problém, protože tohle se zavolá několikrát, chtělo by to nastavit jinde
+                    epoch = task_protocol_manager.get_log(user_id).get_or_create_epoch(epoch_number = growth_limiter_manager.get_current_progress(user_id))
+                    epoch.limits.append(growth_limited_value)
+
+                    param_value = generate_random_value(growth_limited_value)
                     i[base_key] = param_value
                     
                 used_params[base_key + "_" + str(paramNum)] = param_value  # Uložení parametru a jeho hodnoty                    
@@ -595,7 +793,7 @@ def get_layer(layer, model=None, optional_param=None):
             if optional_param is not None:
                 strct = gen_instance.generateFunc(size=lp["size"], inp=model, firstLayer=lp["firstLayer"], config=optional_param)
                 parm = gen_instance.used_struct
-                print("parm is", parm)
+                # print("parm is", parm)
                 return [strct, parm]
             
             else:
@@ -608,8 +806,8 @@ def get_layer(layer, model=None, optional_param=None):
                 #size je kolik vrstev přidáváme, inp je dosud vytvořený model a firstLayer je vrstva z pravidel, která se vezme jako první
                 strct = gen_instance.generateFunc(size=lp["size"], inp=model, firstLayer=lp["firstLayer"], config=optional_param)
                 parm = gen_instance.used_struct
-                print("parm is", parm)
-                print("ur", gen_instance.layers)
+                # print("parm is", parm)
+                # print("ur", gen_instance.layers)
                 return [strct, parm]
             
         return layer_class(**lp)  # Vytvoříme instanci vrstvy s parametry
@@ -648,7 +846,7 @@ def create_functional_model(layers, settings, params = None):
 
         unresolved_layers = processed_layers.copy()  # Seznam vrstev, které je třeba ještě zpracovat
 
-        print("used params before",  used_layers_params, used_settings_params)
+        # print("used params before",  used_layers_params, used_settings_params)
 
         # Prvotní zpracování vstupních vrstev
         while unresolved_layers:
@@ -706,7 +904,7 @@ def create_functional_model(layers, settings, params = None):
             metrics=processed_settings['metrics']
         )
 
-        print("used params: ", used_layers_params, used_settings_params)
+        # print("used params: ", used_layers_params, used_settings_params)
         return model, [used_layers_params, used_settings_params, used_generator_params]
     except Exception as e:
         raise e
@@ -724,7 +922,7 @@ class Generator:
 
     def setRules(self, layers):
         """Nastaví pravidla pro vrstvy podle možných následných vrstev."""
-        print("setting rules:", layers)
+        # print("setting rules:", layers)
         self.layers = layers
         rules = {}
         for layer in layers:
@@ -738,14 +936,14 @@ class Generator:
                 (l["type"], l["id"]) for l in layers if l["id"] in layer.get("inputs", [])
             ]
             
-            print("pos_layers", possible_next_layers)
+            # print("pos_layers", possible_next_layers)
 
             rules[layer_id] = {
                 "layer": layer,
                 #"params": layer,
                 "next_layers": possible_next_layers
             }
-            print("rules", rules)
+            # print("rules", rules)
         self.rules = rules
         
 
@@ -765,9 +963,9 @@ class Generator:
                     use_rules = config["used_rules"]
                     use_sequence = config["layers_sequence"]
                     use_params = config["used_parameters"]
-                    print("user_rules", use_rules)
-                    print("use_sequence", use_sequence)
-                    print("use_params", use_params)
+                    # print("user_rules", use_rules)
+                    # print("use_sequence", use_sequence)
+                    # print("use_params", use_params)
                     
                     for i in range(len(use_sequence)):
                         rule = use_rules[use_sequence[i]]
@@ -781,7 +979,7 @@ class Generator:
                         new_layer = get_layer(remove_outer_list(processed_rule_layer), struct)
                         struct = new_layer(struct) if callable(new_layer) else new_layer
                         # print("Vrstva přidána s parametry:", rule["params"])
-                        print("Vrstva přidána s parametry:", use_params[i])
+                        # print("Vrstva přidána s parametry:", use_params[i])
                         
                     
                     
@@ -793,19 +991,19 @@ class Generator:
                         if rule is None:
                             raise ValueError(f"Layer with ID {current_layer_id} not found in rules.")
                     
-                        print("used rule:", rule["layer"])
+                        # print("used rule:", rule["layer"])
                         processed_rule_layer, used_rule_param = process_parameters([rule["layer"]])
                         used_parameters.append(used_rule_param)
                         #add
                         used_layers_sequence.append(current_layer_id)
-                        print("processed_rule_layer", processed_rule_layer)
+                        # print("processed_rule_layer", processed_rule_layer)
 
                         # Použití get_layer pro vytvoření vrstvy se zpracovanými parametry
                         # new_layer = get_layer(rule["layer"], struct)
                         new_layer = get_layer(remove_outer_list(processed_rule_layer), struct)
                         struct = new_layer(struct) if callable(new_layer) else new_layer
                         # print("Vrstva přidána s parametry:", rule["params"])
-                        print("Vrstva přidána s parametry:", used_rule_param)
+                        # print("Vrstva přidána s parametry:", used_rule_param)
 
                         # Výběr další vrstvy z možných následujících vrstev
                         if rule["next_layers"]:
@@ -823,9 +1021,9 @@ class Generator:
                     
                     return out(struct)
                 else:
-                    print("toto je struktura:")
+                    # print("toto je struktura:")
                     print(struct)
-                    print("used_generator_params", used_parameters)
+                    # print("used_generator_params", used_parameters)
                     self.used_struct["used_parameters"] = used_parameters
                     self.used_struct["layers_sequence"] = used_layers_sequence
                     self.used_struct["used_rules"] = self.rules

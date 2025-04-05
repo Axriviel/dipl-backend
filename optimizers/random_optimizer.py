@@ -4,10 +4,12 @@ from utils.task_progress_manager import progress_manager, termination_manager
 from utils.time_limit_manager import time_limit_manager
 from .essentials import create_functional_model
 from flask import session
+from utils.task_progress_manager import growth_limiter_manager
+from utils.task_protocol_manager import task_protocol_manager
 
 # Funkce pro více tréninků jednoho modelu
-def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32):
-    early_stopping = EarlyStopping(monitor=monitor_metric, patience=5, min_delta=0.01, mode='max', restore_best_weights=True)
+def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32, user_id = ""):
+    early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
     try:
         best_epoch_history = []
         best_metric_value = 0
@@ -36,6 +38,13 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, thre
                 if final_metric_value < threshold:
                     print(f"Stopping early: Model did not meet {monitor_metric} threshold of {threshold}")
                     break
+
+                if(termination_manager.is_terminated(user_id)):
+                    raise Exception("Task terminated by user")
+                if(time_limit_manager.has_time_exceeded(user_id)):
+                    print("ending on time")
+                    break
+
             except Exception as e:
                 raise e
 
@@ -59,14 +68,43 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
         user_id = session.get("user_id")
 
         for i in range(num_models):
+            # in random optimizer one model is considered one epoch
+            # create record of the epoch
+            print(f"Creating/logging model for epoch {i+1}")
+            task_protocol_manager.get_log(user_id).get_or_create_epoch(epoch_number = (i+1))
+            print(f"Epochs so far: {[e.epoch_number for e in task_protocol_manager.get_log(user_id).epochs]}")
+            
             print(f"Training model {i+1}")
             model, used_params = create_functional_model(layers, settings)
 
             # Trénujeme model několikrát a získáme finální hodnotu metriky a historii metrik
             trained_model, metric_value, metric_history = train_multiple_times(
-                model, x_train, y_train, x_val, y_val, num_runs=num_runs, threshold=threshold, monitor_metric=monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"]
+                model, x_train, y_train, x_val, y_val, num_runs=num_runs, threshold=threshold, monitor_metric=monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id = user_id
             )
+
+            layers_info = []
+            for layer in model.layers:
+                layer_info = {
+                    'layer_name': layer.name,
+                    'layer_type': layer.__class__.__name__,
+                    'num_params': layer.count_params(),
+                    'trainable': layer.trainable,
+                    # 'config': layer.get_config()
+                }
+                try:
+                    layer_info['output_shape'] = str(layer.output_shape)
+                except AttributeError:
+                    layer_info['output_shape'] = "N/A"
+                layers_info.append(layer_info)
+            
             print(f"Model {i+1} achieved {monitor_metric}: {metric_value}")
+            task_protocol_manager.get_log(user_id).log_model_to_epoch(
+            epoch_number = i+1,
+            model_id = i+1,
+            architecture = layers_info,
+            parameters = used_params,
+            results = metric_value
+            )
 
             # Pokud je aktuální model lepší než předchozí, uložíme ho jako nejlepší
             if metric_value > best_metric_value:
@@ -82,6 +120,8 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
             if(time_limit_manager.has_time_exceeded(user_id)):
                 print("ending on time")
                 break
+            # increase the progress for growth_limiter
+            growth_limiter_manager.update_progress(user_id)
             
         print(f"Best model achieved {monitor_metric}: {best_metric_value}")
         return best_model, best_metric_value, best_metric_history, best_model_params

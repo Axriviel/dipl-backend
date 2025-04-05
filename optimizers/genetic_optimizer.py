@@ -4,11 +4,13 @@ from utils.task_progress_manager import progress_manager, termination_manager
 from utils.time_limit_manager import time_limit_manager
 from .essentials import create_functional_model, process_parameters
 from flask import session
+from utils.task_progress_manager import growth_limiter_manager
+from utils.task_protocol_manager import task_protocol_manager
 
 # Funkce pro více tréninků jednoho modelu
-def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='val_accuracy'):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=1, monitor_metric='val_accuracy', user_id=""):
     try:
-        early_stopping = EarlyStopping(monitor=monitor_metric, patience=5, min_delta=0.01, mode='max', restore_best_weights=True)
+        early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
         best_epoch_history = []
         best_metric_value = 0
         best_weights = None  # Uchová váhy modelu s nejlepší finální hodnotou metriky
@@ -36,6 +38,13 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_r
                 if final_metric_value < threshold:
                     print(f"Stopping early: Model did not meet {monitor_metric} threshold of {threshold}")
                     break
+
+                if(termination_manager.is_terminated(user_id)):
+                    raise Exception("Task terminated by user")
+                if(time_limit_manager.has_time_exceeded(user_id)):
+                    print("ending on time")
+                    break
+
             except Exception as e:
                 print(e)
 
@@ -275,6 +284,8 @@ def genetic_optimization(
         user_id = session.get("user_id")
 
         for generation in range(num_generations):
+            task_protocol_manager.get_log(user_id).get_or_create_epoch(epoch_number = (generation+1))
+
             print(f"Generation {generation + 1}")
             # Výběr rodičů
             parents = select_parents(population, fitness_scores, num_parents, selection_method)
@@ -308,6 +319,30 @@ def genetic_optimization(
                 evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric)
                 for model, _ in population
             ]
+            # protocol models in generation
+            for model_index, ((model, used_params), (metric_value, _)) in enumerate(zip(population, fitness_results)):
+                layers_info = []
+                for layer in model.layers:
+                    layer_info = {
+                        'layer_name': layer.name,
+                        'layer_type': layer.__class__.__name__,
+                        'num_params': layer.count_params(),
+                        'trainable': layer.trainable
+                    }
+                    try:
+                        layer_info['output_shape'] = str(layer.output_shape)
+                    except AttributeError:
+                        layer_info['output_shape'] = "N/A"
+                    layers_info.append(layer_info)
+
+                task_protocol_manager.get_log(user_id).log_model_to_epoch(
+                    epoch_number=generation + 1,
+                    model_id=f"model_{generation + 1}_{model_index + 1}",
+                    architecture=layers_info,
+                    parameters=used_params,
+                    results=metric_value
+                )
+
             fitness_scores = [metric_value for metric_value, _ in fitness_results]
             fitness_histories = [best_history for _, best_history in fitness_results]
             # Nejlepší model generace
@@ -332,6 +367,7 @@ def genetic_optimization(
                 raise Exception("Task terminated by user")
             if(time_limit_manager.has_time_exceeded(user_id)):
                 break
+            growth_limiter_manager.update_progress(user_id)
 
 
         # Vrácení nejlepšího modelu a jeho parametrů

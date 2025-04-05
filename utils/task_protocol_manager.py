@@ -6,6 +6,34 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Optional, Dict
 
 @dataclass
+class ModelLog:
+    model_id: Optional[str] = None
+    architecture: Dict[str, any] = field(default_factory=dict)
+    parameters: Dict[str, any] = field(default_factory=dict)
+    results: Optional[float] = field(default_factory=float)
+    timestamp: Optional[str] = None
+
+@dataclass
+class EpochLog:
+    epoch_number: int
+    model_info: Optional[Dict[str, any]] = field(default_factory=dict)
+    limits: List[Dict[str, any]] = field(default_factory=list)
+    # results: Optional[Dict[str, any]] = field(default_factory=dict)
+    timestamp: Optional[str] = None
+    models: List[ModelLog] = field(default_factory=list)
+
+    def add_model(self, architecture=None, parameters=None, results=None, model_id=None):
+        """Přidá záznam o jednom vytvořeném modelu v rámci epochy."""
+        model_log = ModelLog(
+            model_id=model_id,
+            architecture=architecture or {},
+            parameters=parameters or {},
+            results=results or 0,
+            timestamp=time.strftime('%Y-%m-%d %H:%M:%S')
+        )
+        self.models.append(model_log)
+
+@dataclass
 class TaskProtocol:
     x_columns: List[str] = field(default_factory=list)
     y_columns: List[str] = field(default_factory=list)
@@ -14,6 +42,7 @@ class TaskProtocol:
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     additional_info: Dict[str, any] = field(default_factory=dict)
+    epochs: List[EpochLog] = field(default_factory=list)
 
     def log(self, key: str, value):
         """Univerzální metoda pro logování hodnot – uloží do správného atributu nebo do additional_info."""
@@ -21,6 +50,23 @@ class TaskProtocol:
             setattr(self, key, value)
         else:
             self.additional_info[key] = value
+
+    def get_or_create_epoch(self, epoch_number: int) -> EpochLog:
+        for epoch in self.epochs:
+            if epoch.epoch_number == epoch_number:
+                return epoch
+        new_epoch = EpochLog(epoch_number=epoch_number, timestamp=time.strftime('%Y-%m-%d %H:%M:%S'))
+        self.epochs.append(new_epoch)
+        return new_epoch
+
+    def log_model_to_epoch(self, epoch_number: int, architecture=None, parameters=None, results=None, model_id=None):
+        epoch = self.get_or_create_epoch(epoch_number)
+        epoch.add_model(
+            architecture=architecture,
+            parameters=parameters,
+            results=results,
+            model_id=model_id
+        )
 
     def log_dict(self, data: Dict[str, any]):
         """Umožní zalogovat víc klíčů najednou (např. columns_info dict)."""
