@@ -41,6 +41,7 @@ class TaskProtocol:
     one_hot_encoded_y: List[str] = field(default_factory=list)
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
+    limit_growth: Optional[str] = None
     additional_info: Dict[str, any] = field(default_factory=dict)
     epochs: List[EpochLog] = field(default_factory=list)
 

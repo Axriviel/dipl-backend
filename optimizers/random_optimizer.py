@@ -6,9 +6,11 @@ from .essentials import create_functional_model
 from flask import session
 from utils.task_progress_manager import growth_limiter_manager
 from utils.task_protocol_manager import task_protocol_manager
+import warnings
 
 # Funkce pro více tréninků jednoho modelu
 def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32, user_id = ""):
+    warnings.filterwarnings("error", category=UserWarning)
     early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
     try:
         best_epoch_history = []
@@ -19,7 +21,8 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, thre
             try:
                 epoch_history = []
                 print(f"Training run {i+1}")
-                history = model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
+                history = model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
+                print("history:", history.history[monitor_metric])
 
                 # Přidáme hodnoty metriky pro každou epochu do epoch_history
                 for epoch, value in enumerate(history.history[monitor_metric]):
@@ -84,11 +87,17 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
 
             layers_info = []
             for layer in model.layers:
+                neurons = None
+                if hasattr(layer, 'units'):       # Dense, LSTM, atd.
+                    neurons = layer.units
+                elif hasattr(layer, 'filters'):   # Conv vrstvy
+                    neurons = layer.filters
                 layer_info = {
                     'layer_name': layer.name,
                     'layer_type': layer.__class__.__name__,
                     'num_params': layer.count_params(),
                     'trainable': layer.trainable,
+                    'neurons': neurons
                     # 'config': layer.get_config()
                 }
                 try:

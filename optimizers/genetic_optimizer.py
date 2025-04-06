@@ -6,10 +6,12 @@ from .essentials import create_functional_model, process_parameters
 from flask import session
 from utils.task_progress_manager import growth_limiter_manager
 from utils.task_protocol_manager import task_protocol_manager
+import warnings
 
 # Funkce pro více tréninků jednoho modelu
-def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=1, monitor_metric='val_accuracy', user_id=""):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=1, monitor_metric='accuracy', epochs=10, batch_size=32, user_id=""):
     try:
+        warnings.filterwarnings("error", category=UserWarning)
         early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
         best_epoch_history = []
         best_metric_value = 0
@@ -19,7 +21,7 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_r
             try:
                 epoch_history = []
                 print(f"Training run {i+1}")
-                history = model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=100, batch_size=32, callbacks=[early_stopping], verbose=0)
+                history = model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=0)
 
                 # Přidáme hodnoty metriky pro každou epochu do epoch_history
                 for epoch, value in enumerate(history.history[monitor_metric]):
@@ -71,9 +73,9 @@ def initialize_population(layers, settings, population_size):
         raise e
 
 # Fitness funkce pro hodnocení modelů
-def evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='val_accuracy',  ):
+def evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='accuracy',  epochs = 10, batch_size = 32):
     try:
-        _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=num_runs, monitor_metric=monitor_metric)
+        _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=num_runs, monitor_metric=monitor_metric, epochs=epochs, batch_size=batch_size)
         return metric_value, metric_history
     except Exception as e:
         raise e
@@ -259,7 +261,7 @@ def genetic_optimization(
     num_parents=4, 
     mutation_rate=0.1, 
     num_runs=3, 
-    monitor_metric='val_accuracy',
+    monitor_metric='accuracy',
     selection_method="Roulette",  # Metoda výběru rodičů
     threshold=0.7, 
     max_models=5,
@@ -269,7 +271,7 @@ def genetic_optimization(
         # Inicializace populace
         population = initialize_population(layers, settings, population_size)
         fitness_results = [
-            evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric)
+            evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"])
             for model, _ in population
         ]
         fitness_scores = [metric_value for metric_value, _ in fitness_results]
@@ -315,8 +317,15 @@ def genetic_optimization(
 
             # Aktualizace populace a fitness score
             population = new_population
+
+            # add some extra models to keep population fresh 
+            # upravit a dělat tam nějaké procento z init velikosti populace?
+            for i in range(5):
+                 model, params = create_functional_model(layers, settings)
+                 population.append((model, params))            
+            
             fitness_results = [
-                evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric)
+                evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"])
                 for model, _ in population
             ]
             # protocol models in generation

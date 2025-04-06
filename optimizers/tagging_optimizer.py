@@ -171,7 +171,7 @@ def tagging_optimization(layers,
 
 
 # Funkce pro více tréninků jednoho modelu
-def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='accuracy', epochs=10, batch_size=32):
     try:
         early_stopping = EarlyStopping(monitor=monitor_metric, patience=5, min_delta=0.01, mode='max', restore_best_weights=True)
         best_epoch_history = []
@@ -182,7 +182,7 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, thre
             try:
                 epoch_history = []
                 print(f"Training run {i+1}")
-                history = model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
+                history = model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
 
                 # Přidáme hodnoty metriky pro každou epochu do epoch_history
                 for epoch, value in enumerate(history.history[monitor_metric]):

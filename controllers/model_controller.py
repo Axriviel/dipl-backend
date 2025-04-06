@@ -340,11 +340,17 @@ def get_model_details(model_id):
 
         layers_info = []
         for layer in loaded_model.layers:
+            neurons = None
+            if hasattr(layer, 'units'):       # Dense, LSTM, atd.
+                neurons = layer.units
+            elif hasattr(layer, 'filters'):   # Conv vrstvy
+                neurons = layer.filters
             layer_info = {
                 'layer_name': layer.name,
                 'layer_type': layer.__class__.__name__,
                 #'output_shape': layer.shape,  # Výstupní tvar vrstvy
                 'num_params': layer.count_params(),  # Počet parametrů
+                'neurons': neurons,
                 'trainable': layer.trainable  # Jestli je vrstva trénovatelná
             }
             layers_info.append(layer_info)

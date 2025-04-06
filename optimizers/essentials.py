@@ -18,12 +18,13 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
         num_runs = settings.get("k-fold", 1)
         print("settings:", layers)
 
+        task_protocol_manager.log_item(user_id, "limit_growth", settings.get("limit_growth"))
         opt_method = settings["opt_algorithm"]
         max_progress = 1
         if opt_method == "random":
             max_progress = settings.get("max_models", 5)
         elif opt_method == "genetic":
-            settings.get("GA", {}).get("generations", 10)
+            max_progress = settings.get("GA", {}).get("generations", 10)
         else:
             max_progress = settings.get("max_models", 5)
 
@@ -98,7 +99,8 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                     num_parents=ga_config["numParents"], 
                     mutation_rate=ga_config["mutationRate"], 
                     selection_method=ga_config["selectionMethod"],
-                    threshold=settings["es_threshold"], 
+                    threshold=settings["es_threshold"],
+                    monitor_metric=settings["monitor_metric"] 
                 )
             except Exception as e:
                 print("GA essentials exception: ", e)
@@ -477,6 +479,9 @@ def process_dataset(dataset_path, dataset_config, model_settings):
                 print("Full y encoding (encode_y = True)")
                 y, _ = encode_labels(y.iloc[:, 0])  # očekáváme pouze jeden sloupec
                 categorical_y = [y.columns[0]] if isinstance(y, pd.DataFrame) else []
+            # elif dataset_config.get("loss") == "categorical_crossentropy":
+            #     y, _ = encode_labels(y.iloc[:, 0]) 
+            #     categorical_y = [y.columns[0]] if isinstance(y, pd.DataFrame) else []
             elif y_onehot_cols:
                 print("Encoding specific y columns:", y_onehot_cols)
                 y_encoded = y.copy()
@@ -686,6 +691,12 @@ def process_parameters(config, params=None, keras_int_params=None):
                     i[base_key] = param_value
                 else:
                     # value contains configuration for keys with Random
+
+                    print("Stuff from growth_function", growth_limiter_manager.get_growth_function(user_id), 
+                                                                     growth_limiter_manager.get_current_progress(user_id),
+                                                                     growth_limiter_manager.get_max_progress(user_id))
+                    
+
                     growth_limited_value = use_limit_growth_function(value, growth_limiter_manager.get_growth_function(user_id), 
                                                                      growth_limiter_manager.get_current_progress(user_id),
                                                                      growth_limiter_manager.get_max_progress(user_id))
