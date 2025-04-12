@@ -100,18 +100,44 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                     mutation_rate=ga_config["mutationRate"], 
                     selection_method=ga_config["selectionMethod"],
                     threshold=settings["es_threshold"],
-                    monitor_metric=settings["monitor_metric"] 
+                    monitor_metric=settings["monitor_metric"],
+                    user_id=user_id
                 )
+                print(b_metric_val)
+                print(used_params)
+            # b_model.summary()
+
+                return b_model, b_metric_val, b_metric_history, used_params
             except Exception as e:
                 print("GA essentials exception: ", e)
                 raise
-            
-            print(b_metric_val)
-            print(used_params)
-            # b_model.summary()
+        
 
-            return b_model, b_metric_val, b_metric_history, used_params
+        elif opt_method == "bayesian":
+            try:
+                from optimizers.bayes_optimizer import bayesian_optimization
+                print("Running Bayesian optimization...")
 
+                b_model, b_metric_val, b_metric_history, used_params = bayesian_optimization(
+                    layers,
+                    settings,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_val=x_test,
+                    y_val=y_test,
+                    max_trials=settings.get("max_models", 15),
+                    num_runs=num_runs,
+                    threshold=settings["es_threshold"],
+                    monitor_metric=settings["monitor_metric"]
+                )
+
+                print("Best Bayesian result:", b_metric_val)
+                return b_model, b_metric_val, b_metric_history, used_params
+
+
+            except Exception as e:
+                print("Bayesian optimization exception:", e)
+                raise
 
         elif opt_method == "nni":
             try:
@@ -475,7 +501,7 @@ def process_dataset(dataset_path, dataset_config, model_settings):
 
             # ======== ENCODING Y =========
             # sparse nefunguje s one-hot encoded daty
-            if dataset_config.get("encode_y", False) and dataset_config.get("loss") != "sparse_categorical_crossentropy":
+            if dataset_config.get("encode_y", False) and model_settings.get("loss") != "sparse_categorical_crossentropy":
                 print("Full y encoding (encode_y = True)")
                 y, _ = encode_labels(y.iloc[:, 0])  # očekáváme pouze jeden sloupec
                 categorical_y = [y.columns[0]] if isinstance(y, pd.DataFrame) else []
