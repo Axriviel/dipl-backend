@@ -3,6 +3,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from .essentials import create_functional_model
 from flask import session
 from utils.task_progress_manager import progress_manager
+from utils.task_progress_manager import ExternalTerminationCallback
 
 
 #counts match score between required tags (user defined task) and target tags (models in database)
@@ -128,7 +129,7 @@ def tagging_optimization(layers,
                 model, used_params = create_functional_model(saved_model_layers, settings, params=saved_model_params)
                 print("model created")
                 trained_model, metric_value, metric_history = train_multiple_times(
-                model, x_train, y_train, x_test, y_test, num_runs=num_runs, threshold=threshold, monitor_metric=settings["monitor_metric"], epochs=settings["epochs"], batch_size=settings["batch_size"])
+                model, x_train, y_train, x_test, y_test, num_runs=num_runs, threshold=threshold, monitor_metric=settings["monitor_metric"], epochs=settings["epochs"], batch_size=settings["batch_size"], user_id = user_id)
                 print("model_trained")
 
                 found_models.append([trained_model, metric_value, metric_history, used_params])
@@ -171,18 +172,20 @@ def tagging_optimization(layers,
 
 
 # Funkce pro více tréninků jednoho modelu
-def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='accuracy', epochs=10, batch_size=32):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='accuracy', epochs=10, batch_size=32, user_id = ""):
     try:
         early_stopping = EarlyStopping(monitor=monitor_metric, patience=5, min_delta=0.01, mode='max', restore_best_weights=True)
         best_epoch_history = []
         best_metric_value = 0
         best_weights = None  # Uchová váhy modelu s nejlepší finální hodnotou metriky
+        external_termination = ExternalTerminationCallback(user_id=user_id)
+
 
         for i in range(num_runs):
             try:
                 epoch_history = []
                 print(f"Training run {i+1}")
-                history = model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
+                history = model.fit(x_train, y_train, epochs=epochs, validation_data=(x_val, y_val), batch_size=batch_size, callbacks=[early_stopping], verbose=1)
 
                 # Přidáme hodnoty metriky pro každou epochu do epoch_history
                 for epoch, value in enumerate(history.history[monitor_metric]):

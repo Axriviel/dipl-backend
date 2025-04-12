@@ -5,23 +5,27 @@ from utils.time_limit_manager import time_limit_manager
 from .essentials import create_functional_model
 from flask import session
 from utils.task_progress_manager import growth_limiter_manager
+from utils.task_progress_manager import ExternalTerminationCallback
 from utils.task_protocol_manager import task_protocol_manager
 import warnings
 
 # Funkce pro více tréninků jednoho modelu
 def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32, user_id = ""):
-    warnings.filterwarnings("error", category=UserWarning)
-    early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
     try:
+
+        warnings.filterwarnings("error", category=UserWarning)
+        early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
+        external_termination = ExternalTerminationCallback(user_id=user_id)
+
         best_epoch_history = []
         best_metric_value = 0
-        best_weights = None  # Uchová váhy modelu s nejlepší finální hodnotou metriky
+        best_weights = None
 
         for i in range(num_runs):
             try:
                 epoch_history = []
                 print(f"Training run {i+1}")
-                history = model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
+                history = model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=epochs, batch_size=batch_size, callbacks=[early_stopping, external_termination], verbose=1)
                 print("history:", history.history[monitor_metric])
 
                 # Přidáme hodnoty metriky pro každou epochu do epoch_history
@@ -43,8 +47,10 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, thre
                     break
 
                 if(termination_manager.is_terminated(user_id)):
+                    task_protocol_manager.log_item(user_id, "stopped_by", "user")
                     raise Exception("Task terminated by user")
                 if(time_limit_manager.has_time_exceeded(user_id)):
+                    task_protocol_manager.log_item(user_id, "stopped_by", "timeout")
                     print("ending on time")
                     break
 
@@ -125,8 +131,10 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
                 progress = ((i + 1) / num_models) * 100  # Progress jako % dokončení
                 progress_manager.update_progress(user_id, progress)
             if(termination_manager.is_terminated(user_id)):
+                task_protocol_manager.log_item(user_id, "stopped_by", "user")
                 raise Exception("Task terminated by user")
             if(time_limit_manager.has_time_exceeded(user_id)):
+                task_protocol_manager.log_item(user_id, "stopped_by", "timeout")
                 print("ending on time")
                 break
             # increase the progress for growth_limiter

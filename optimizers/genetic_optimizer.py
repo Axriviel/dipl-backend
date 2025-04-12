@@ -5,6 +5,7 @@ from utils.time_limit_manager import time_limit_manager
 from .essentials import create_functional_model, process_parameters
 from flask import session
 from utils.task_progress_manager import growth_limiter_manager
+from utils.task_progress_manager import ExternalTerminationCallback
 from utils.task_protocol_manager import task_protocol_manager
 import warnings
 
@@ -13,6 +14,7 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_r
     try:
         warnings.filterwarnings("error", category=UserWarning)
         early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
+        external_termination = ExternalTerminationCallback(user_id=user_id)
         best_epoch_history = []
         best_metric_value = 0
         best_weights = None  # Uchová váhy modelu s nejlepší finální hodnotou metriky
@@ -21,7 +23,7 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_r
             try:
                 epoch_history = []
                 print(f"Training run {i+1}")
-                history = model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=0)
+                history = model.fit(x_train, y_train, epochs=epochs, validation_data=(x_val, y_val), batch_size=batch_size, callbacks=[early_stopping, external_termination], verbose=1)
 
                 # Přidáme hodnoty metriky pro každou epochu do epoch_history
                 for epoch, value in enumerate(history.history[monitor_metric]):
@@ -42,13 +44,15 @@ def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_r
                     break
 
                 if(termination_manager.is_terminated(user_id)):
+                    task_protocol_manager.log_item(user_id, "stopped_by", "user")
                     raise Exception("Task terminated by user")
                 if(time_limit_manager.has_time_exceeded(user_id)):
+                    task_protocol_manager.log_item(user_id, "stopped_by", "timeout")
                     print("ending on time")
                     break
 
             except Exception as e:
-                print(e)
+                raise e
 
         # Načteme nejlepší váhy zpět do modelu před jeho vrácením
         if best_weights:
@@ -73,9 +77,9 @@ def initialize_population(layers, settings, population_size):
         raise e
 
 # Fitness funkce pro hodnocení modelů
-def evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='accuracy',  epochs = 10, batch_size = 32):
+def evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='accuracy',  epochs = 10, batch_size = 32, user_id=""):
     try:
-        _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=num_runs, monitor_metric=monitor_metric, epochs=epochs, batch_size=batch_size)
+        _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=num_runs, monitor_metric=monitor_metric, epochs=epochs, batch_size=batch_size, user_id=user_id)
         return metric_value, metric_history
     except Exception as e:
         raise e
@@ -265,13 +269,15 @@ def genetic_optimization(
     selection_method="Roulette",  # Metoda výběru rodičů
     threshold=0.7, 
     max_models=5,
-    trackProgress = True
+    trackProgress = True,
+    user_id=""
 ):
     try:
         # Inicializace populace
+        print("user_id v gen ", user_id)
         population = initialize_population(layers, settings, population_size)
         fitness_results = [
-            evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"])
+            evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id)
             for model, _ in population
         ]
         fitness_scores = [metric_value for metric_value, _ in fitness_results]
@@ -325,7 +331,7 @@ def genetic_optimization(
                  population.append((model, params))            
             
             fitness_results = [
-                evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"])
+                evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id)
                 for model, _ in population
             ]
             # protocol models in generation
@@ -373,8 +379,10 @@ def genetic_optimization(
 
             print(f"Best model in generation {generation + 1}: {monitor_metric} = {generation_best_score}")
             if(termination_manager.is_terminated(user_id)):
+                task_protocol_manager.log_item(user_id, "stopped_by", "user")
                 raise Exception("Task terminated by user")
             if(time_limit_manager.has_time_exceeded(user_id)):
+                task_protocol_manager.log_item(user_id, "stopped_by", "timeout")
                 break
             growth_limiter_manager.update_progress(user_id)
 

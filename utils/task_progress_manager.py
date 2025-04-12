@@ -1,3 +1,5 @@
+from tensorflow.keras.callbacks import Callback
+
 class TaskProgressManager:
     def __init__(self):
         self.task_progress = {}
@@ -49,6 +51,19 @@ class GrowthLimiterManager:
         """Odstraní uživatele z paměti"""
         self.user_growth.pop(user_id, None)
 
+
+
+class ExternalTerminationCallback(Callback):
+    def __init__(self, user_id):
+        super().__init__()
+        self.user_id = user_id
+
+    def on_batch_end(self, batch, logs=None):
+
+        # print(f"[Callback] Batch {batch}, user_id: {self.user_id}, terminated: {termination_manager.is_terminated(self.user_id)}")
+        if termination_manager.is_terminated(self.user_id):
+            # print("⛔ Externí požadavek na ukončení – přerušuji model.fit()")
+            self.model.stop_training = True
 
 class TerminationManager:
     def __init__(self):
