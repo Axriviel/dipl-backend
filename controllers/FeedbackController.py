@@ -11,13 +11,11 @@ feedback_bp = Blueprint('feedback_bp', __name__)
 def return_feedback():
     try:
         data = Feedback.query.all()
-                # Serializace dat do seznamu slovníků
         feedback_list = [
             map_feedback_to_dto(feedback).to_dict()
             for feedback in data
         ]
         
-        # Vrácení dat jako JSON odpověď
         return jsonify(feedback_list)
     except Exception as e:
         print(str(e))
@@ -33,11 +31,8 @@ def receive_feedback():
 
         user = User.query.filter_by(username=user_name).first()
 
-        #přidat funkci na logování feedbacku
         feedback = Feedback(feedback=feedback_text, user_id=user.id)
-        print("Feedback: "+ feedback_text +" od uzivatele: " + user_name)
-
-        #print(feedback)
+        # print("Feedback: "+ feedback_text +" od uzivatele: " + user_name)
 
         db.session.add(feedback)
         db.session.commit()

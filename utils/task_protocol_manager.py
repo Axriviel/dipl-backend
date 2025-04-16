@@ -11,6 +11,7 @@ class ModelLog:
     architecture: Dict[str, any] = field(default_factory=dict)
     parameters: Dict[str, any] = field(default_factory=dict)
     results: Optional[float] = field(default_factory=float)
+    history: List[str] = field(default_factory=list)
     timestamp: Optional[str] = None
 
 @dataclass
@@ -22,12 +23,12 @@ class EpochLog:
     timestamp: Optional[str] = None
     models: List[ModelLog] = field(default_factory=list)
 
-    def add_model(self, architecture=None, parameters=None, results=None, model_id=None):
-        """Přidá záznam o jednom vytvořeném modelu v rámci epochy."""
+    def add_model(self, architecture=None, parameters=None, history=None, results=None, model_id=None):
         model_log = ModelLog(
             model_id=model_id,
             architecture=architecture or {},
             parameters=parameters or {},
+            history=history or [],
             results=results or 0,
             timestamp=time.strftime('%Y-%m-%d %H:%M:%S')
         )
@@ -46,7 +47,6 @@ class TaskProtocol:
     epochs: List[EpochLog] = field(default_factory=list)
 
     def log(self, key: str, value):
-        """Univerzální metoda pro logování hodnot – uloží do správného atributu nebo do additional_info."""
         if hasattr(self, key):
             setattr(self, key, value)
         else:
@@ -60,22 +60,21 @@ class TaskProtocol:
         self.epochs.append(new_epoch)
         return new_epoch
 
-    def log_model_to_epoch(self, epoch_number: int, architecture=None, parameters=None, results=None, model_id=None):
+    def log_model_to_epoch(self, epoch_number: int, architecture=None, parameters=None, history=None, results=None, model_id=None):
         epoch = self.get_or_create_epoch(epoch_number)
         epoch.add_model(
             architecture=architecture,
             parameters=parameters,
             results=results,
+            history=history,
             model_id=model_id
         )
 
     def log_dict(self, data: Dict[str, any]):
-        """Umožní zalogovat víc klíčů najednou (např. columns_info dict)."""
         for key, value in data.items():
             self.log(key, value)
 
     def to_dict(self) -> dict:
-        """Vrací celý log jako serializovatelný slovník."""
         return asdict(self)
 
 

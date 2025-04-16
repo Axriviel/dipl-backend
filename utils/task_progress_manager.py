@@ -15,11 +15,9 @@ class TaskProgressManager:
 
 class GrowthLimiterManager:
     def __init__(self):
-        # Ukládáme informace o každém uživateli: growth_type, current_progress, max_progress
         self.user_growth = {}
 
     def set_growth(self, user_id, growth_function, max_progress):
-        """Nastaví růstovou funkci a maximální počet kroků pro uživatele"""
         self.user_growth[user_id] = {
             "growth_function": growth_function,
             "current_progress": 1,
@@ -27,28 +25,22 @@ class GrowthLimiterManager:
         }
 
     def update_progress(self, user_id, increment=1):
-        """Zvýší aktuální krok uživatele (např. po každé generaci)"""
         if user_id in self.user_growth:
             self.user_growth[user_id]["current_progress"] += increment
 
     def get_growth_function(self, user_id):
-        """Vrací pouze typ růstové funkce uživatele"""
         return self.user_growth.get(user_id, {}).get("growth_function", None)
 
     def get_current_progress(self, user_id):
-        """Vrací pouze aktuální progres uživatele"""
         return self.user_growth.get(user_id, {}).get("current_progress", -1)
 
     def get_max_progress(self, user_id):
-        """Vrací maximální počet kroků růstu pro uživatele"""
         return self.user_growth.get(user_id, {}).get("max_progress", -1)
 
     def get_growth_info(self, user_id):
-        """Vrací všechny růstové informace o uživateli"""
         return self.user_growth.get(user_id, None)
 
     def reset_user(self, user_id):
-        """Odstraní uživatele z paměti"""
         self.user_growth.pop(user_id, None)
 
 
@@ -60,9 +52,7 @@ class ExternalTerminationCallback(Callback):
 
     def on_batch_end(self, batch, logs=None):
 
-        # print(f"[Callback] Batch {batch}, user_id: {self.user_id}, terminated: {termination_manager.is_terminated(self.user_id)}")
         if termination_manager.is_terminated(self.user_id):
-            # print("⛔ Externí požadavek na ukončení – přerušuji model.fit()")
             self.model.stop_training = True
 
 class TerminationManager:

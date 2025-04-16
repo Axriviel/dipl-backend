@@ -7,7 +7,7 @@ class Model(db.Model):
     model_name = db.Column(db.String(100), nullable=False)
     metric_value = db.Column(db.Float, nullable=False)
     watched_metric = db.Column(db.String(100), nullable=False)
-    metric_values_history = db.Column(JSON, nullable=True)  # JSON sloupec pro uložení epoch a hodnot
+    metric_values_history = db.Column(JSON, nullable=True)  # JSON for epochs and values
     creation_config = db.Column(JSON, nullable=True) #config used to create the model
     used_params = db.Column(JSON, nullable=True)  # used params
     used_opt_method = db.Column(db.String(100), nullable=False)

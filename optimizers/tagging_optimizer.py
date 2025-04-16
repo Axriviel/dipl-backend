@@ -50,22 +50,14 @@ def find_candidates(source_tags, task, num_of_models = 3):
         if not candidates:
             print("empty candidates")
             return []
-            # Seznam pro ukládání skóre modelů
         scored_models = []
         print("checking")
 
-        # Porovnání každého modelu s tagy
         for model in candidates:
-            # Extrahuj informace z databáze
             target_tags = json.loads(model.used_tags)
-            print(target_tags, "targ tagy")
-            print(source_tags, "src tagy")
 
-            # Získej skóre pomocí get_tag_score
             score = get_tag_score(source_tags, target_tags)
-            print("score:", score)
 
-            # Přidej model a jeho skóre do seznamu
             scored_models.append({
                 "id": model.id,
                 # "model_name": model.model_name,
@@ -76,12 +68,9 @@ def find_candidates(source_tags, task, num_of_models = 3):
                 "metric_value": model.metric_value,
                 # "watched_metric": model.watched_metric
             })
-            print("append proveden")
-        print(scored_models, "modely")
 
-        # Seřaď modely podle skóre (sestupně) a preferovat lepší metric_value
+        # sort models bas on metric
         scored_models.sort(key=lambda x: (x["score"], x["metric_value"]), reverse=True)
-        print("sort proveden")
         return scored_models[:num_of_models]
     except Exception as e:
         print("tagging optimizer e", e)
@@ -100,7 +89,6 @@ def tagging_optimization(layers,
     ):
     try:
         potential_models = find_candidates(opt_data["tags"], opt_data["task_type"])
-        print("potential_models-tagging", potential_models)
 
         user_id = session.get("user_id")
         progress_manager.update_progress(user_id, 0)
@@ -110,9 +98,6 @@ def tagging_optimization(layers,
         #tba - retrain potential models and evaluate
         if len(potential_models) != 0:
             for index, m in enumerate(potential_models):
-            #načíst model (načíst config z databáze a ten použít, v něm nahradit výstupní vrstvu a vstupní dimenzi v inputu)
-            #možná načíst váhy z existujícího modelu a ty do toho nového nahrát?
-                # print(m, "potential model")
 
                 #config saves [layers, settings, dataset_config], thats why we need only 1st item
                 saved_model_layers = m["config"][0]
@@ -123,23 +108,15 @@ def tagging_optimization(layers,
                 #replace last layer with new one
                 saved_model_layers[-1]=layers[-1]
 
-                print(saved_model_layers, "layers nove")
-                print(saved_model_params, "params nove")
-
                 model, used_params = create_functional_model(saved_model_layers, settings, params=saved_model_params)
-                print("model created")
                 trained_model, metric_value, metric_history = train_multiple_times(
                 model, x_train, y_train, x_test, y_test, num_runs=num_runs, threshold=threshold, monitor_metric=settings["monitor_metric"], epochs=settings["epochs"], batch_size=settings["batch_size"], user_id = user_id)
-                print("model_trained")
 
                 found_models.append([trained_model, metric_value, metric_history, used_params])
-            print("Celkem nalezeno: ", len(found_models), "modelů")
 
         progress_manager.update_progress(user_id, 50)            
 
-        # print("nyní budeme generovat")
-        #pokud je modelů málo, nebo stejně chceme vytvořit několik vlastních ...
-        #stejně tak by zde bylo možno použít genetický přístup ...
+        # if not enough models are found, generate some 
         from .random_optimizer import random_search
         for i in range(num_of_models):
             b_model, b_metric_val, b_metric_history, used_params = random_search(layers, settings, 
@@ -152,12 +129,10 @@ def tagging_optimization(layers,
             found_models.append([b_model, b_metric_val, b_metric_history, used_params])
 
         sorted_models = sorted(found_models, key=lambda x: x[1], reverse=True)
-        print("sorted_models: ",sorted_models)
 
 
         progress_manager.update_progress(user_id, 100)
         b_model = sorted_models[0]
-        print(b_model)
         best_model = b_model[0]
         best_metric_value = b_model[1]
         best_metric_history = b_model[2]

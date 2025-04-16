@@ -111,6 +111,7 @@ def bayesian_optimization(layers, settings, x_train, y_train, x_val, y_val, max_
                 epoch_number=epoch_number,
                 model_id=epoch_number,
                 architecture=layers_info,
+                history=history,
                 parameters=used_params,
                 results=score
             )

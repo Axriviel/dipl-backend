@@ -16,22 +16,19 @@ dataset_bp = Blueprint('dataset_bp', __name__)
 @dataset_bp.route('/api/dataset/save-dataset', methods=['POST'])
 def save_dataset_endpoint():
     """
-    Endpoint pro nahrání datasetu a jeho uložení.
+    Endpoint for dataset upload
     """
     try:
-        # Kontrola, zda je uživatel přihlášen
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({"error": "User not authenticated"}), 401
 
-        # Kontrola, zda soubor byl nahrán
         if 'datasetFile' not in request.files:
             return jsonify({"error": "No dataset file"}), 400
 
         file = request.files['datasetFile']
         dataset_name = file.filename
 
-        # Uložení datasetu
         dataset_path = save_dataset(file, user_id)
 
         return jsonify({"message": "Dataset successfully uploaded!", "dataset_name": dataset_name, "dataset_path": dataset_path}), 200
@@ -44,25 +41,20 @@ def save_dataset_endpoint():
 @dataset_bp.route('/api/dataset/list-datasets', methods=['GET'])
 def list_datasets():
     """
-    Endpoint pro získání seznamu všech datasetů uložených pro přihlášeného uživatele.
+    Endpoint to get all users dataset
     """
     try:
-        # Ověření přihlášení uživatele
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({"error": "User not authenticated"}), 401
 
-        # Cesta ke složce s datasetem uživatele
         user_folder = os.path.join(Config.DATASET_FOLDER, str(user_id))
 
-        # Ověření, zda složka existuje
         if not os.path.exists(user_folder):
-            return jsonify({"datasets": []})  # Pokud složka neexistuje, vrátíme prázdný seznam
+            return jsonify({"datasets": []})  # return empty list if no datasets
 
-        # Načtení seznamu souborů
         dataset_files = os.listdir(user_folder)
 
-        # Vrácení seznamu datasetů
         return jsonify({"datasets": dataset_files}), 200
 
     except Exception as e:
@@ -153,14 +145,11 @@ def get_column_names():
 
     if not user_id:
         return jsonify({"error": "User not authenticated"}), 401
-    print(is_default_dataset)
     dataset_path = get_dataset_path(user_id, dataset_name, is_default_dataset)
-    print(dataset_path)
     if not dataset_path:
         return jsonify({"error": "Dataset not found"}), 404
 
     dataset_info = getDatasetInfo(dataset_path, dataset_name)
-    # print(dataset_info["column_names"])
 
     if "error" in dataset_info:
         return jsonify(dataset_info), 400
@@ -172,13 +161,11 @@ def get_dataset_path(user_id, dataset_name, is_default_dataset = False):
     if(is_default_dataset):
         return os.path.join(Config.DATASET_FOLDER, "default", dataset_name)
 
-    """Vrátí cestu k datasetu uživatele"""
     user_folder = os.path.join(Config.DATASET_FOLDER, str(user_id))
     dataset_path = os.path.join(user_folder, dataset_name)
     return dataset_path if os.path.exists(dataset_path) else None
 
 def getDatasetInfo(dataset_path, dataset_name):
-    """Načte dataset a vrátí informace o něm"""
     dataset_info = {
         "dataset_name": dataset_name,
         "num_rows": None,
