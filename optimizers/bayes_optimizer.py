@@ -42,8 +42,8 @@ def extract_search_space(layers):
                     dimensions.append(Categorical(val["options"], name=name))
 
     # nothing to optimize, raise error
-    if(len(param_names) == 0):
-        raise ValueError("No optimizable parameters found")
+    if(len(param_names) == 0) :
+        raise ValueError("No optimizable parameters in model found")
     return dimensions, param_names
 
 def inject_params(layers, param_names, values):

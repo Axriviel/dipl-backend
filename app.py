@@ -20,7 +20,7 @@ from utils.model_storing import save_model, load_model
 
 from controllers.model_controller import model_bp
 from controllers.user_controller import user_bp
-from controllers.FeedbackController import feedback_bp
+from controllers.feedback_controller import feedback_bp
 from controllers.notification_controller import notification_bp
 from controllers.dataset_controller import dataset_bp
 
