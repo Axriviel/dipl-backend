@@ -9,11 +9,11 @@ from utils.task_progress_manager import ExternalTerminationCallback
 from utils.task_protocol_manager import task_protocol_manager
 import warnings
 
-def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32, user_id = ""):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', epochs=10, batch_size=32, user_id = "", es_patience=10, es_delta=0.01):
     try:
 
         warnings.filterwarnings("error", category=UserWarning)
-        early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
+        early_stopping = EarlyStopping(monitor=monitor_metric, patience=es_patience, min_delta=es_delta, mode='max', restore_best_weights=True)
         external_termination = ExternalTerminationCallback(user_id=user_id)
 
         best_epoch_history = []
@@ -74,7 +74,7 @@ def random_search(layers, settings, x_train, y_train, x_val, y_val, num_models=5
             model, used_params = create_functional_model(layers, settings)
 
             trained_model, metric_value, metric_history = train_multiple_times(
-                model, x_train, y_train, x_val, y_val, num_runs=num_runs, threshold=threshold, monitor_metric=monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id = user_id
+                model, x_train, y_train, x_val, y_val, num_runs=num_runs, threshold=threshold, monitor_metric=monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id = user_id, es_patience=settings.get("es_patience", 10), es_delta=settings.get("es_delta", 0.01)
             )
 
             layers_info = []

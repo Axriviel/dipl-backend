@@ -110,7 +110,7 @@ def tagging_optimization(layers,
 
                 model, used_params = create_functional_model(saved_model_layers, settings, params=saved_model_params)
                 trained_model, metric_value, metric_history = train_multiple_times(
-                model, x_train, y_train, x_test, y_test, num_runs=num_runs, threshold=threshold, monitor_metric=settings["monitor_metric"], epochs=settings["epochs"], batch_size=settings["batch_size"], user_id = user_id)
+                model, x_train, y_train, x_test, y_test, num_runs=num_runs, threshold=threshold, monitor_metric=settings["monitor_metric"], epochs=settings["epochs"], batch_size=settings["batch_size"], user_id = user_id, es_patience=settings.get("es_patience", 10), es_delta=settings.get("es_delta", 0.01))
 
                 found_models.append([trained_model, metric_value, metric_history, used_params])
 
@@ -147,9 +147,9 @@ def tagging_optimization(layers,
 
 
 # Funkce pro více tréninků jednoho modelu
-def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='accuracy', epochs=10, batch_size=32, user_id = ""):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, num_runs=3, threshold=0.7, monitor_metric='accuracy', epochs=10, batch_size=32, user_id = "", es_patience=10, es_delta=0.01):
     try:
-        early_stopping = EarlyStopping(monitor=monitor_metric, patience=5, min_delta=0.01, mode='max', restore_best_weights=True)
+        early_stopping = EarlyStopping(monitor=monitor_metric, patience=es_patience, min_delta=es_delta, mode='max', restore_best_weights=True)
         best_epoch_history = []
         best_metric_value = 0
         best_weights = None  # Uchová váhy modelu s nejlepší finální hodnotou metriky

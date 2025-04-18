@@ -55,7 +55,7 @@ def inject_params(layers, param_names, values):
         injected[idx][base_key] = values[i]
     return injected
 
-def bayesian_optimization(layers, settings, x_train, y_train, x_val, y_val, max_trials=15, num_runs=3, threshold=0.7, monitor_metric='val_accuracy'):
+def bayesian_optimization(layers, settings, x_train, y_train, x_val, y_val, max_trials=15, num_runs=3, threshold=0.7, monitor_metric='val_accuracy', es_patience=10, es_delta=0.01):
     user_id = session.get("user_id")
     dimensions, param_names = extract_search_space(layers)
 
@@ -91,7 +91,8 @@ def bayesian_optimization(layers, settings, x_train, y_train, x_val, y_val, max_
             model, score, history = train_multiple_times(
                 model, x_train, y_train, x_val, y_val,
                 num_runs=num_runs, threshold=threshold, monitor_metric=monitor_metric,
-                epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id
+                epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id,
+                es_patience=es_patience, es_delta=es_delta
             )
 
             layers_info = []

@@ -83,10 +83,13 @@ def create_optimized_model(layers, settings, dataset_path, dataset_config, opt_d
                     num_generations=ga_config["generations"], 
                     num_parents=ga_config["numParents"], 
                     mutation_rate=ga_config["mutationRate"], 
+                    num_of_additions=ga_config["additionRate"], 
                     selection_method=ga_config["selectionMethod"],
                     threshold=settings["es_threshold"],
                     monitor_metric=settings["monitor_metric"],
-                    user_id=user_id
+                    user_id=user_id,
+                    es_patience=settings.get("es_patience", 10), 
+                    es_delta=settings.get("es_delta", 0.01)
                 )
 
                 return b_model, b_metric_val, b_metric_history, used_params
@@ -348,7 +351,7 @@ def process_dataset(dataset_path, dataset_config, model_settings, task_type=""):
 
             input_shape = [x.shape[1]]
 
-            print("encoded y", y)
+            # print("encoded y", y)
 
             x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=dataset_config["test_size"])
 

@@ -9,10 +9,10 @@ from utils.task_progress_manager import ExternalTerminationCallback
 from utils.task_protocol_manager import task_protocol_manager
 import warnings
 
-def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=1, monitor_metric='accuracy', epochs=10, batch_size=32, user_id=""):
+def train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=1, monitor_metric='accuracy', epochs=10, batch_size=32, user_id="", es_patience=10, es_delta=0.01):
     try:
         warnings.filterwarnings("error", category=UserWarning)
-        early_stopping = EarlyStopping(monitor=monitor_metric, patience=10, min_delta=0.01, mode='max', restore_best_weights=True)
+        early_stopping = EarlyStopping(monitor=monitor_metric, patience=es_patience, min_delta=es_delta, mode='max', restore_best_weights=True)
         external_termination = ExternalTerminationCallback(user_id=user_id)
         best_epoch_history = []
         best_metric_value = 0
@@ -72,9 +72,9 @@ def initialize_population(layers, settings, population_size):
         raise e
 
 # evaluate fitness of the model
-def evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='accuracy',  epochs = 10, batch_size = 32, user_id=""):
+def evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs=3, monitor_metric='accuracy',  epochs = 10, batch_size = 32, user_id="", es_patience=10, es_delta=0.01):
     try:
-        _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=num_runs, monitor_metric=monitor_metric, epochs=epochs, batch_size=batch_size, user_id=user_id)
+        _, metric_value, metric_history = train_multiple_times(model, x_train, y_train, x_val, y_val, threshold, num_runs=num_runs, monitor_metric=monitor_metric, epochs=epochs, batch_size=batch_size, user_id=user_id, es_patience=es_patience, es_delta=es_delta)
         return metric_value, metric_history
     except Exception as e:
         raise e
@@ -225,6 +225,7 @@ def genetic_optimization(
     y_val, 
     population_size=10, 
     num_generations=5, 
+    num_of_additions=1,
     num_parents=4, 
     mutation_rate=0.1, 
     num_runs=3, 
@@ -233,14 +234,16 @@ def genetic_optimization(
     threshold=0.7, 
     max_models=5,
     trackProgress = True,
-    user_id=""
+    user_id="", 
+    es_patience=10, 
+    es_delta=0.01
 ):
     try:
         # Inicializate populaction
         print("user_id v gen ", user_id)
         population = initialize_population(layers, settings, population_size)
         fitness_results = [
-            evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id)
+            evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id, es_patience=es_patience, es_delta=es_delta)
             for model, _ in population
         ]
         fitness_scores = [metric_value for metric_value, _ in fitness_results]
@@ -276,12 +279,12 @@ def genetic_optimization(
             population = new_population
 
             # add some extra models to keep population fresh 
-            for i in range(5):
+            for i in range(num_of_additions):
                  model, params = create_functional_model(layers, settings)
                  population.append((model, params))            
             
             fitness_results = [
-                evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id)
+                evaluate_fitness(model, x_train, y_train, x_val, y_val, threshold, num_runs, monitor_metric, epochs=settings["epochs"], batch_size=settings["batch_size"], user_id=user_id, es_patience=es_patience, es_delta=es_delta)
                 for model, _ in population
             ]
             # protocol models in generation
@@ -327,7 +330,7 @@ def genetic_optimization(
                 progress = ((generation + 1) / num_generations) * 100 
                 progress_manager.update_progress(user_id, progress)
 
-            print(f"Best model in generation {generation + 1}: {monitor_metric} = {generation_best_score}")
+            # print(f"Best model in generation {generation + 1}: {monitor_metric} = {generation_best_score}")
             if(termination_manager.is_terminated(user_id)):
                 task_protocol_manager.log_item(user_id, "stopped_by", "user")
                 raise Exception("Task terminated by user")
